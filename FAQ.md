@@ -1,99 +1,524 @@
-**Vragenlijst**
+# Chronos Blockchain - Frequently Asked Questions
 
-1.  **Hoe communiceren nodes met elkaar? Hiermee bedoel ik, hoe gebeurt de toekenning van IP-adressen en wordt dit aan elke node doorgegeven? Hoe vinden ze elkaar over het internet? Gaan firewalls en vpn's een probleem geven? Hoe kunnen we dit best aanpakken?**
-    *   **Communicatieprotocol:** Nodes communiceren via een P2P (Peer-to-Peer) gossip-protocol dat draait over TCP/IP. De `SocketTransport` klasse (`src/p2p/socket_transport.cpp`) beheert de directe verbindingen. Berichten (gedefinieerd in `.proto` bestanden) worden geserialiseerd met Google Protobuf.
-    *   **Peer Discovery (Hoe vinden ze elkaar?):** Er is geen centrale server die IP-adressen toekent. Het netwerk gebruikt een **seed peer** mechanisme. In het configuratiebestand (`config/default.toml`) staat een lijst met `seed_peers`. Een nieuwe node maakt verbinding met deze seeds en vraagt hen om een lijst van andere bekende peers (`PeerListMessage`). Op deze manier ontdekt de node organisch het netwerk.
-    *   **Firewalls en VPNs:** Ja, dit is een potentieel probleem. Een node achter een strikte firewall of NAT (Network Address Translation) die geen inkomende verbindingen toestaat, kan zich niet als een volwaardige peer gedragen. Hij kan wel verbindingen met anderen opzetten, maar het netwerk kan geen verbinding met hem opzetten. Dit schaadt de decentralisatie en robuustheid.
-    *   **Aanbevolen aanpak:** De meest betrouwbare oplossing is **port forwarding**. Gebruikers moeten de P2P-poort (standaard `6868` of `8645`) forwarden in hun router naar de machine waar de node op draait. Toekomstige verbeteringen zouden de implementatie van UPnP (Universal Plug and Play) of STUN/TURN-servers kunnen omvatten om dit proces te automatiseren, maar dit is momenteel niet aanwezig.
+## Table of Contents
 
-2.  **Hoe kan ik een saldo van een bepaald adres uit de ledger uitlezen?**
-    De node draait een JSON-RPC server (standaard op poort `8080`). Je kunt een request sturen naar de `get_balance` methode met het adres als parameter.
-    *Voorbeeld request:*
-    ```json
-    {
-        "jsonrpc": "2.0",
-        "method": "get_balance",
-        "params": {
-            "address": "cqc1q..."
-        },
-        "id": 1
-    }
-    ```
-    De `JsonRpcServer::handle_get_balance` functie (`src/rpc/handlers.cpp`) verwerkt dit door de balans op te vragen bij de `State` manager (`src/ledger/state.cpp`).
+1. [General Information](#general-information)
+2. [Installation & Setup](#installation--setup)
+3. [Network & Communication](#network--communication)
+4. [Cryptography & Security](#cryptography--security)
+5. [Consensus & Validation](#consensus--validation)
+6. [Ledger & State Management](#ledger--state-management)
+7. [Performance & Resources](#performance--resources)
+8. [Development & API](#development--api)
+9. [Roadmap & Future Development](#roadmap--future-development)
 
-3.  **Is adresrotatie reeds verwerkt in het programma?**
-    Nee, de Chronos node software implementeert momenteel geen logica voor automatische adresrotatie (zoals bij HD-wallets, waarbij voor elke transactie een nieuw adres wordt gebruikt). Een adres is een directe hash van een publieke sleutel. Hoewel een gebruiker manueel meerdere sleutelparen (en dus adressen) kan aanmaken en gebruiken, is er geen ingebouwd mechanisme in de node om dit te beheren. Een wallet-applicatie zou dit bovenop de node moeten implementeren.
+---
 
-4.  **Welke standaard is er opgezet voor Protonbuf, en kan deze standaard in de toekomst nog aangepast worden?**
-    *   **Standaard:** De structuur van netwerkberichten is vastgelegd in Protobuf-bestanden (`.proto`) met de `proto3` syntax. De twee belangrijkste bestanden zijn:
-        *   `proto/p2p_messages.proto`: Definieert algemene P2P-berichten zoals `Handshake`, `Block`, `Transaction` en peer discovery berichten.
-        *   `proto/bft_messages.proto`: Definieert de berichten voor het BFT-consensusalgoritme (`Prevote`, `Precommit`, `NewRound`).
-    *   **Aanpasbaarheid:** Ja, de standaard kan worden aangepast door de `.proto` bestanden te wijzigen. Nadat een wijziging is doorgevoerd, moeten de C++ klassen opnieuw worden gegenereerd. Het CMake-buildsysteem is geconfigureerd om dit automatisch te doen wanneer `protoc` (de Protobuf-compiler) wordt uitgevoerd. Bij het aanpassen moet rekening worden gehouden met achterwaartse compatibiliteit. Niet-compatibele wijzigingen vereisen een gecoördineerde update van het netwerk (een hard-fork).
+## General Information
 
-5.  **Wat is het geschat cpu-verbruik van het programma?**
-    Dit is sterk afhankelijk van de netwerkactiviteit.
-    *   **In rust:** Zeer laag. De node wacht voornamelijk op netwerkberichten.
-    *   **Bij activiteit (piekverbruik):** Het CPU-verbruik zal pieken tijdens:
-        *   **Cryptografische operaties:** Het verifiëren van Dilithium-handtekeningen en het hashen van blokken/transacties (BLAKE3) zijn CPU-intensieve taken.
-        *   **Blokvalidatie:** Het verwerken van een nieuw blok met veel transacties.
-        *   **Consensus:** Actief deelnemen aan BFT-stemrondes.
-    Een voorzichtige schatting is een **laag tot matig gemiddeld verbruik**, met korte, intense pieken tijdens de consensus en validatie van nieuwe blokken.
+### What is Chronos?
 
-6.  **Wat is het geschat ram-gebruik van het programma?**
-    *   **Full Node:** Het RAM-gebruik wordt voornamelijk bepaald door de `State` klasse, die de volledige map van accountbalansen in het geheugen laadt. Dit betekent dat het geheugengebruik **lineair schaalt met het aantal unieke adressen** in de ledger. Dit kan oplopen van enkele honderden MB's tot **meerdere GB's** op een groot netwerk.
-    *   **Light Node:** In de huidige configuratie gebruikt een light node `MemoryBlockchainStorage`, wat de blockchain in het RAM houdt. Dit is niet schaalbaar en bedoeld voor testdoeleinden.
+Chronos is a modern C++20 blockchain node implementation featuring Byzantine Fault Tolerant (BFT) consensus, Proof-of-Time (PoT) aggregation, and post-quantum cryptography support. The project emphasizes modularity, security, and future-readiness with support for Dilithium signatures via the liboqs library.
 
-7.  **Wat is het geschat HD-gebruik van het programma?**
-    *   **Full Node:** Aanzienlijk. De standaard opslag (`FileKv`) is een tekstbestand dat data in hexadecimaal formaat wegschrijft. Dit is **zeer inefficiënt** en kan de opslaggrootte met een factor 2 of meer vergroten vergeleken met binaire opslag. Zowel de blockchain zelf als de state worden op deze manier opgeslagen. Het HD-gebruik zal dus **snel en aanzienlijk groeien**.
-    *   **Light Node:** Minimaal. Enkel configuratie- en logbestanden worden opgeslagen, aangezien de data in het geheugen wordt bijgehouden.
+### What are the key features?
 
-8.  **kan ik met een oud adres ook een saldo raadplegen en kan ik het laatste nieuwe adres terugvinden?**
-    *   **Saldo raadplegen:** Ja, het saldo van elk adres, oud of nieuw, kan op elk moment worden opgevraagd via de `get_balance` RPC-call, zolang het adres een saldo heeft of ooit heeft gehad. Adressen "vervallen" niet.
-    *   **Laatste adres terugvinden:** Nee, de node zelf houdt geen concept bij van "wallets" of "gebruikers". Het is een gedistribueerde database van adressen en saldi. Het bijhouden van welke adressen bij een gebruiker horen, inclusief het "laatste" adres, is de verantwoordelijkheid van een externe wallet-applicatie.
+- **Modern C++20 Architecture**: Leverages contemporary C++ standards for performance and safety
+- **Modular Design**: Separated concerns across consensus, P2P networking, storage, and cryptography
+- **Post-Quantum Ready**: Optional Dilithium signature support for quantum-resistant security
+- **BFT Consensus**: Byzantine Fault Tolerant consensus mechanism for network agreement
+- **Proof-of-Time**: Time aggregation using NTP measurements with statistical outlier filtering
+- **Protobuf Messaging**: Efficient binary serialization for P2P communication
+- **TOML Configuration**: Human-readable configuration files for easy setup
 
-9.  **Kunnen wij een interface bouwen, in de terminal, die de stand van zaken weergeeft van het volledige netwerk? Zoals aantal nodes, snelheid van verwerking, grootte van de ledger, aantal blocks in verwerking, aantal actieve NTP's en GPS klokken, aantal full nodes en aantal light nodes, enz..**
-    Ja, dit is zeker mogelijk. De basis hiervoor is zelfs al gelegd:
-    *   De `NodeStatus` struct (`src/node/node_status.hpp`) bevat al velden zoals `current_block_height`, `mempool_size` en `connected_peers`.
-    *   De `ConsoleDisplay` klasse (`src/util/console_display.cpp`) kan een dashboard in de terminal tekenen en bijwerken.
-    *   De `get_status` RPC-methode geeft al een deel van deze informatie.
-    Om dit uit te breiden, moeten de `NodeStatus`-struct en `ConsoleDisplay`-klasse worden uitgebreid met de extra gewenste metrics. De `NodeApp`-loop moet deze metrics vervolgens periodiek bijwerken.
+### What is the current development status?
 
-10. **Kan je mij een gedetaileerd stappenplan maken van de werking van het programma?**
-    Zeker, hier is een overzicht van de levenscyclus van de node:
-    1.  **Initialisatie (`main.cpp` -> `NodeApp::NodeApp`)**:
-        *   De configuratie wordt geladen uit een `.toml` bestand.
-        *   Logging, P2P-transport (`SocketTransport`), gossip-protocol, en cryptografische `Signer` worden opgezet.
-        *   De state-database (`state_kv_store_`) en blockchain-database (`blockchain_storage_`) worden geïnitialiseerd.
-        *   De `State` manager laadt alle accountbalansen in het geheugen.
-        *   Consensus-modules (`PoTAggregator`, `BftGadget`) en de `ExternalTimeSourceManager` (voor NTP) worden gestart.
-        *   De JSON-RPC server wordt voorbereid.
-    2.  **Start (`NodeApp::run`)**:
-        *   De P2P-server begint te luisteren naar inkomende verbindingen.
-        *   De node verbindt met `seed_peers` en verstuurt een `Handshake`-bericht.
-        *   De RPC-server wordt in een aparte thread gestart.
-        *   De blockchain-geschiedenis wordt geladen. Als deze leeg is, wordt een **genesis block** aangemaakt.
-    3.  **Main Event Loop (continue cyclus in `NodeApp::run`)**:
-        *   **Peer Management:** Periodiek worden nieuwe peers ontdekt en worden slechte peers verwijderd.
-        *   **Consensus:**
-            *   De `PoTAggregator` berekent een betrouwbare netwerktijd (consensus time).
-            *   De `BftGadget` wijst een leider aan voor de huidige ronde.
-            *   **Als leider:** De node bundelt transacties uit de `mempool` in een nieuw blok en stelt dit voor aan het netwerk via een `NewRound`-bericht.
-            *   **Als volger:** De node wacht op een voorstel en stemt (`Prevote`, `Precommit`) op basis van de validatieregels.
-    *   **Berichtverwerking (`NodeApp::handle_p2p_message`)**:
-        *   Inkomende P2P-berichten (transacties, blokken, stemmen) worden continu verwerkt. Nieuwe transacties gaan de `mempool` in, BFT-berichten worden naar de `BftGadget` gestuurd.
-    4.  **Blokfinalisatie (`BftGadget` -> `NodeApp::add_block`)**:
-        *   Zodra een 2/3+ meerderheid van `Precommit`-stemmen is ontvangen, is het blok gefinaliseerd.
-        *   De transacties in het blok worden toegepast op de `State` (balansen worden bijgewerkt).
-        *   Het blok wordt opgeslagen in de `blockchain_storage_`.
-        *   De node gaat door naar de volgende blokhoogte en het proces herhaalt zich.
+Chronos is in active development. Core functionality is implemented but several features are still being enhanced. See the [Roadmap & Future Development](#roadmap--future-development) section for details on planned improvements.
 
-11. **In de code staan er nog heel wat zaken als "te implementeren", kan je deze oplijsten?**
-    Hier is een samenvatting van de belangrijkste `TODO`'s en te implementeren onderdelen:
-    *   **Consensus (`src/consensus/bft.cpp`)**: De logica voor het daadwerkelijk finaliseren van een blok na een precommit-quorum en het voorstellen van een blok als leider is nog niet volledig uitgewerkt.
-    *   **NTP Client (`src/consensus/ntp_client.cpp`)**: De betrouwbaarheidsscore (`confidence`) en foutmarge (`error_ms`) van een NTP-tijdmeting zijn nu hardcoded en moeten dynamisch berekend worden.
-    *   **Node App (`src/node/node_app.cpp`)**:
-        *   Transactievalidatie in de mempool moet worden uitgebreid (bv. saldo controleren).
-        *   Er is nog geen timeout-mechanisme als een BFT-ronde vastloopt.
-        *   Het herstellen van de state vanuit een snapshot is nog niet geïmplementeerd.
-    *   **Snapshots (`src/storage/snapshots.cpp`)**: Het serialiseren en deserialiseren van de volledige ledger `State` voor snapshots is nog een placeholder.
-    *   **RPC (`src/rpc/handlers.cpp`)**: De `is_syncing` status in de `get_status` call is nog niet dynamisch.
+---
+
+## Installation & Setup
+
+### What are the system requirements?
+
+**Minimum Requirements:**
+- C++20 compatible compiler (GCC 10+ or Clang 12+)
+- CMake 3.18 or higher
+- Protocol Buffers (libprotoc) 3.21.12 or higher
+- 2GB RAM for light nodes, 4GB+ for full nodes
+- 10GB+ disk space for full nodes
+
+**Recommended:**
+- Modern multi-core processor
+- 8GB+ RAM for full node operation
+- SSD storage for improved I/O performance
+- Stable internet connection with at least 1 Mbps bandwidth
+
+### How do I build and run Chronos?
+
+```bash
+# Clone the repository
+git clone https://github.com/yourusername/Chronos
+cd Chronos
+
+# Create build directory
+mkdir build && cd build
+
+# Configure with CMake
+cmake .. -DCMAKE_BUILD_TYPE=Release
+
+# Build
+make
+
+# Run with default configuration
+./chronos_node
+
+# Or run with custom configuration
+./chronos_node --config /path/to/config.toml
+```
+
+### How do I enable post-quantum cryptography?
+
+To enable Dilithium support via liboqs:
+
+```bash
+cmake .. -DCHRONOS_USE_OQS=ON \
+         -DOQS_INCLUDE_DIR=/path/to/oqs/include \
+         -DOQS_LIB=/path/to/oqs/lib
+make
+```
+
+Ensure you have liboqs installed and provide the correct paths to its include directory and library.
+
+### What is the difference between full nodes and light nodes?
+
+**Full Nodes:**
+- Store complete blockchain history
+- Validate all blocks and transactions independently
+- Can serve blockchain data to light nodes
+- Require significant storage and memory resources
+- Configured with `node_type = "full"` in config file
+
+**Light Nodes:**
+- Store only block headers and minimal state
+- Rely on full nodes for transaction validation
+- Reduced resource requirements
+- Suitable for resource-constrained environments
+- Configured with `node_type = "light"` in config file
+
+---
+
+## Network & Communication
+
+### How do nodes communicate with each other?
+
+Nodes communicate via a peer-to-peer gossip protocol running over TCP/IP. The `SocketTransport` class manages direct connections, and messages are serialized using Google Protocol Buffers for efficiency. Messages are defined in `.proto` files and include blocks, transactions, and BFT consensus messages.
+
+### How does peer discovery work?
+
+Chronos uses a seed peer mechanism for network bootstrapping:
+
+1. New nodes connect to initial seed peers listed in the configuration file (`config/default.toml`)
+2. Seed peers respond with a list of other known peers (`PeerListMessage`)
+3. The node progressively discovers the network through these connections
+4. No central server or authority is required for peer discovery
+
+This decentralized approach ensures network resilience and censorship resistance.
+
+### How do I configure network settings?
+
+Edit the `[network]` section in your configuration file:
+
+```toml
+[network]
+listen_addr = "0.0.0.0"        # Listen on all interfaces
+listen_port = 8645              # P2P port
+seeds = ["127.0.0.1:8645"]     # Initial seed peers
+```
+
+For production deployment, add multiple reliable seed peers to ensure successful network bootstrap.
+
+### Will firewalls and NAT cause problems?
+
+Nodes behind strict firewalls or NAT that block incoming connections cannot function as fully participating peers. They can initiate outbound connections but cannot receive incoming connections, which limits network decentralization.
+
+**Recommended Solutions:**
+- **Port Forwarding**: Forward the P2P port (default 8645) in your router to the machine running the node
+- **DMZ Configuration**: Place the node in the router's DMZ (less secure but effective)
+- **VPS Deployment**: Run nodes on cloud servers with public IP addresses
+
+Future enhancements may include UPnP (Universal Plug and Play) or STUN/TURN server support for automatic NAT traversal.
+
+### What are the default ports?
+
+- **P2P Communication**: Port 8645 (TCP)
+- **RPC Server**: Port 8080 (HTTP)
+
+These can be configured in the `[network]` and `[rpc]` sections of the configuration file.
+
+---
+
+## Cryptography & Security
+
+### What cryptographic algorithms does Chronos use?
+
+- **Hashing**: BLAKE3 for block hashing and address generation
+- **Standard Signatures**: Configurable signing algorithms
+- **Post-Quantum Signatures**: Dilithium (via liboqs, optional)
+- **Address Encoding**: Bech32m with configurable HRP (default "cqc")
+- **Address Format**: BLAKE3 hash of public key truncated to 160 bits (20 bytes)
+
+### How are private keys managed?
+
+Chronos implements a secure key management system via the `wallet_cli` tool:
+
+- **Secure Storage**: Private keys are stored in `~/.chronos/keys/` with owner-only file permissions (600)
+- **Key IDs**: Keys are referenced by user-friendly identifiers (e.g., "validator-1")
+- **Never in Config**: Private keys are NEVER stored in configuration files
+- **Base58Check Encoding**: Public keys are displayed in Base58Check format for brevity and error detection
+
+### How do I generate and manage keys?
+
+```bash
+# Generate a new key pair
+./wallet_cli generate-keys validator-1
+
+# List all stored keys
+./wallet_cli list-keys
+
+# Display public key for configuration
+./wallet_cli show-public validator-1
+```
+
+The displayed public key can then be added to the `validators` list in your configuration file.
+
+### Does Chronos support address rotation?
+
+Currently, Chronos does not implement automatic address rotation (HD wallet functionality). Each address is a direct hash of a public key. While users can manually generate and use multiple key pairs, there is no built-in mechanism for automatic address management. This functionality would need to be implemented in an external wallet application.
+
+---
+
+## Consensus & Validation
+
+### How does the BFT consensus work?
+
+Chronos implements a Byzantine Fault Tolerant consensus mechanism:
+
+1. **Round-based**: Consensus progresses through numbered rounds at each block height
+2. **Leader Selection**: A designated leader proposes blocks for each round
+3. **Voting Phases**: Validators vote in two phases (Prevote and Precommit)
+4. **Quorum Requirement**: 2/3+ majority required for block finalization
+5. **Safety Guarantee**: Ensures consistency even with up to 1/3 malicious validators
+
+The consensus state machine is implemented in the `BftGadget` class.
+
+### What is Proof-of-Time (PoT)?
+
+Proof-of-Time is a time synchronization mechanism that:
+
+- Aggregates time measurements from multiple NTP servers
+- Uses median and MAD (Median Absolute Deviation) statistics
+- Filters outliers based on configurable `outlier_mad_factor`
+- Provides consensus time for block timestamps
+- Ensures temporal consistency across the network
+
+This prevents time-based attacks and ensures fair consensus timing.
+
+### How are validators configured?
+
+Validators are configured in the `[consensus]` section of the configuration file:
+
+```toml
+[consensus]
+validators = [
+    "base58check_encoded_public_key_1",
+    "base58check_encoded_public_key_2",
+    # ...
+]
+```
+
+All nodes in the network must have identical validator sets for consensus to function correctly.
+
+### What validation is performed on transactions?
+
+Current transaction validation includes:
+
+- **Signature Verification**: Cryptographic validation of transaction signatures
+- **Basic Format Checks**: Validation of required fields and data structures
+- **Nonce Verification**: Ensuring correct transaction sequence (planned)
+- **Balance Validation**: Checking sufficient funds for transaction amount plus fees (planned)
+- **Duplicate Detection**: Preventing replay attacks (planned)
+
+Enhanced validation features are currently under development.
+
+### Can I query transaction status?
+
+Currently, transaction status queries are limited. You can:
+
+- Check if a transaction is in the mempool via RPC
+- Verify if a transaction was included in a finalized block
+- Query account balance changes resulting from transactions
+
+More detailed transaction tracking and history features are planned for future releases.
+
+---
+
+## Ledger & State Management
+
+### How do I query an address balance?
+
+Use the JSON-RPC interface (default port 8080):
+
+```json
+{
+    "jsonrpc": "2.0",
+    "method": "get_balance",
+    "params": {
+        "address": "cqc1q..."
+    },
+    "id": 1
+}
+```
+
+The response will contain the current balance for the specified address.
+
+### How is state stored?
+
+Chronos uses a modular storage approach:
+
+- **State Storage**: Account balances and nonces stored via `IKv` interface
+  - `FileKv`: Text-based hexadecimal format (current default)
+  - Future: Binary format for efficiency
+- **Blockchain Storage**: Implements `IBlockchainStorage` interface
+  - `DiskBlockchainStorage`: Persistent storage for full nodes
+  - `MemoryBlockchainStorage`: In-memory storage for light nodes and testing
+
+### Can I query historical address balances?
+
+The current implementation maintains only the current state. Historical balance queries are not supported. The ledger tracks the latest balance and nonce for each address but does not maintain a complete transaction history per address.
+
+This functionality could be added through:
+- Transaction indexing by address
+- Periodic state snapshots
+- Archive node functionality
+
+### What is the snapshot system?
+
+Snapshots provide point-in-time backups of blockchain state:
+
+- **Purpose**: Fast node synchronization and state recovery
+- **Contents**: Complete account state (balances and nonces)
+- **Format**: JSON-based (current), binary format planned
+- **Status**: Core framework implemented, full serialization in development
+
+Snapshots enable new nodes to sync quickly without replaying the entire blockchain history.
+
+---
+
+## Performance & Resources
+
+### What is the expected CPU usage?
+
+CPU usage varies significantly based on network activity:
+
+**Idle State:**
+- Minimal CPU usage (< 1%)
+- Node primarily waits for network messages
+
+**Active State (peak usage):**
+- **Cryptographic Operations**: Signature verification (Dilithium is compute-intensive)
+- **Block Validation**: Processing transactions and state updates
+- **Consensus Participation**: BFT voting and message handling
+- **Hashing**: BLAKE3 operations for blocks and transactions
+
+**Estimate**: Low to moderate average CPU usage with periodic spikes during consensus rounds and block validation.
+
+### What is the expected memory usage?
+
+**Full Node:**
+- **State Data**: Scales linearly with number of unique addresses
+- **Estimate**: 500MB to several GB depending on network size
+- **Primary Factor**: In-memory account state map
+
+**Light Node:**
+- **Block Headers**: Minimal storage
+- **Estimate**: 100-500MB
+- **Note**: Current `MemoryBlockchainStorage` is not production-ready for large chains
+
+Memory usage grows with network adoption and transaction activity.
+
+### What is the expected disk usage?
+
+**Full Node:**
+- **Current Storage**: Text-based hexadecimal format (inefficient)
+- **Overhead**: 2x or more compared to binary storage
+- **Growth Rate**: Rapid growth with blockchain activity
+- **Estimate**: Several GB to hundreds of GB depending on chain length
+
+**Light Node:**
+- **Minimal**: Only configuration and log files
+- **Estimate**: < 1GB
+
+**Future Optimization**: Migration to binary storage format (LevelDB planned) will significantly reduce disk usage.
+
+### How can I optimize performance?
+
+**Hardware Recommendations:**
+- Use SSD storage instead of HDD for faster I/O
+- Allocate adequate RAM (8GB+ for full nodes)
+- Multi-core processor for parallel signature verification
+
+**Configuration Tuning:**
+- Adjust `bft_round_timeout_ms` for network conditions
+- Configure appropriate `outlier_mad_factor` for time synchronization
+- Optimize `gossip_topics` to reduce message overhead
+
+**Network Optimization:**
+- Ensure low-latency connection to seed peers
+- Use geographically distributed seed peers
+- Consider dedicated server deployment for validators
+
+---
+
+## Development & API
+
+### What RPC methods are available?
+
+Current JSON-RPC methods include:
+
+- `get_balance`: Query account balance by address
+- `get_status`: Retrieve node status and network information
+- `send_transaction`: Submit a transaction to the network (planned)
+- Additional methods under development
+
+RPC handlers are implemented in `src/rpc/handlers.cpp`.
+
+### How do I interact with the node programmatically?
+
+The JSON-RPC interface provides programmatic access:
+
+```bash
+# Using curl
+curl -X POST http://localhost:8080/rpc \
+  -H "Content-Type: application/json" \
+  -d '{
+    "jsonrpc": "2.0",
+    "method": "get_balance",
+    "params": {"address": "cqc1q..."},
+    "id": 1
+  }'
+```
+
+Libraries supporting JSON-RPC 2.0 can be used from any programming language.
+
+### Can I build a custom monitoring dashboard?
+
+Yes, the foundation is already implemented:
+
+- **Node Status**: `NodeStatus` struct contains metrics like block height, mempool size, and peer count
+- **Console Display**: `ConsoleDisplay` class provides terminal-based rendering
+- **RPC Access**: `get_status` method exposes status information
+
+To extend monitoring:
+1. Add desired metrics to `NodeStatus` struct
+2. Update `ConsoleDisplay` rendering logic
+3. Expose metrics via RPC for external dashboards
+
+### What logging capabilities are available?
+
+Chronos implements a comprehensive logging system:
+
+**Features:**
+- **Categories**: GENERAL, WALLET, CONSENSUS, P2P, STATE, CRYPTO, LEDGER, STORAGE
+- **Levels**: INFO, WARN, ERROR, DEBUG
+- **Outputs**: Console and file (`chronos_log_<date>.txt`)
+- **Usage**: `LOG_INFO(LogCategory::CONSENSUS, "Message with {}", arg)`
+
+**Configuration:**
+- Initialize with `LOG_INIT(".")` in main
+- Adjust verbosity as needed
+- Separate console display from log spam
+
+### How can I contribute to development?
+
+Chronos welcomes contributions:
+
+1. Review the project structure and coding conventions
+2. Check `TODO.md` for planned features and known issues
+3. Study the modular architecture (consensus, P2P, storage, crypto)
+4. Submit pull requests with clear descriptions
+5. Follow existing code documentation standards
+6. Write tests for new functionality
+
+See the project repository for contribution guidelines.
+
+---
+
+## Roadmap & Future Development
+
+### What features are currently in development?
+
+**High Priority:**
+- **Thread Safety**: Mutex protection for mempool, peer management, and blockchain state
+- **Block Finalization**: Complete BFT precommit quorum logic
+- **Transaction Validation**: Enhanced mempool validation with balance and nonce checking
+- **Signature Verification**: Full integration of signature verification in consensus messages
+- **State Serialization**: Binary format for efficient snapshots
+
+**Medium Priority:**
+- **Canonical Serialization**: Fixed-width integers and proper endianness for wire format
+- **LevelDB Storage**: Efficient blockchain storage backend
+- **Enhanced RPC**: Additional API methods and transaction submission
+- **Network Improvements**: UPnP support, better peer scoring
+
+### What are known limitations?
+
+**Current Limitations:**
+- Incomplete transaction validation in mempool
+- Snapshot serialization is placeholder-based
+- Text-based storage format (inefficient)
+- No automatic NAT traversal
+- Limited RPC functionality
+- No HD wallet support
+- No historical state queries
+
+See `TODO.md` for comprehensive tracking of limitations and planned improvements.
+
+### Will the protocol change in the future?
+
+Protocol evolution is expected and necessary:
+
+**Backward Compatibility:**
+- Protobuf schema changes must maintain compatibility where possible
+- Breaking changes require coordinated network upgrades (hard forks)
+- Version negotiation in handshake protocol
+
+**Planned Changes:**
+- Migration to canonical binary serialization
+- Enhanced BFT message validation
+- Improved time synchronization (NTS support)
+- Storage layer optimizations
+
+Network upgrades will be coordinated through governance mechanisms as the network matures.
+
+### What is the long-term vision?
+
+Chronos aims to be:
+
+- **Secure**: Post-quantum cryptography and robust consensus
+- **Scalable**: Efficient storage and state management
+- **Decentralized**: Accessible to operators with diverse resources
+- **Developer-Friendly**: Clear APIs and comprehensive documentation
+- **Future-Ready**: Adaptable architecture for emerging requirements
+
+The project continues to evolve based on community needs and technological advances.
+
+---
+
+## Additional Resources
+
+- **Documentation**: See `README.md` for build instructions and feature overview
+- **Development Guide**: Check `.github/copilot-instructions.md` for architecture details
+- **Issue Tracking**: `TODO.md` lists known issues and planned features
+- **Staging Folders**: Historical development stages in `staging/` directory provide architectural insights
+
+For questions not covered in this FAQ, please consult the source code documentation or reach out to the development community.
