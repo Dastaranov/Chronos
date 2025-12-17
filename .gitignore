@@ -1,0 +1,31 @@
+# Build artifacts
+build/
+_deps/
+*.o
+*.a
+*.so
+chronos_node
+chronos_tests
+test_socket
+cmake_install.cmake
+
+# Logs
+*.log
+log_*.txt
+
+# Staging area
+staging/
+
+# Config files (keep templates only)
+config/config1.toml
+config/config2.toml
+config1.toml
+config2.toml
+
+# IDE
+.vscode/
+*.code-workspace
+
+# Temporary files
+*.zip
+*.tmp

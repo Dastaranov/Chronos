@@ -1,0 +1,31 @@
+syntax = "proto3";
+package chronos.bft;
+
+// Signature structure as defined in the C++ code (Bytes wrapper)
+message SignatureProto {
+  bytes data = 1;
+}
+
+message Prevote {
+  uint64 height = 1;
+  uint32 round = 2;
+  bytes block_hash = 3; // Use bytes for hash
+  string validator_id = 4;
+  SignatureProto signature = 5;
+}
+
+message Precommit {
+  uint64 height = 1;
+  uint32 round = 2;
+  bytes block_hash = 3; // Use bytes for hash
+  string validator_id = 4;
+  SignatureProto signature = 5;
+}
+
+message NewRound {
+  uint64 height = 1;
+  uint32 round = 2;
+  bytes proposal_block_hash = 3; // Use bytes for hash
+  string validator_id = 4;
+  SignatureProto signature = 5;
+}

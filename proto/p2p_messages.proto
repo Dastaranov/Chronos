@@ -1,0 +1,83 @@
+syntax = "proto3";
+package chrono_p2p;
+import "bft_messages.proto";
+
+message HandshakeMessage {
+  string node_id = 1;
+  int32 protocol_version = 2;
+  int32 port = 3;
+  bytes last_block_hash = 4;
+  uint64 current_block_height = 5;
+}
+
+message GetBlocksMessage {
+  bytes from_block_hash = 1;
+  int32 limit = 2;
+}
+
+message BlockMessage {
+  // Block will be serialized as bytes from Block::serialize() method
+  bytes block_data = 1; 
+}
+
+message GetTransactionsMessage {
+  repeated string transaction_ids = 1;
+}
+
+message TransactionMessage {
+  // Transaction will be serialized as bytes from Transaction::serialize() method
+  bytes transaction_data = 1;
+}
+
+message PeerListMessage {
+  repeated string peers = 1; // "ip:port" format
+}
+
+message P2PMessage {
+  oneof payload {
+    HandshakeMessage handshake = 1;
+    GetBlocksMessage get_blocks = 2;
+    BlockMessage block = 3;
+    GetTransactionsMessage get_transactions = 4;
+    TransactionMessage transaction = 5;
+    PeerListMessage peer_list = 6;
+    // BFT messages
+    chronos.bft.Prevote prevote = 7;
+    chronos.bft.Precommit precommit = 8;
+    chronos.bft.NewRound new_round = 9;
+    // Snapshot messages
+    GetSnapshotsMessage get_snapshots = 10;
+    SnapshotsAvailableMessage snapshots_available = 11;
+    GetSnapshotChunkMessage get_snapshot_chunk = 12;
+    SnapshotChunkMessage snapshot_chunk = 13;
+  }
+}
+
+message GetSnapshotsMessage {
+  uint64 min_height = 1; // Minimum height of snapshots to request
+  uint64 max_height = 2; // Maximum height of snapshots to request
+}
+
+message SnapshotMetadata {
+  uint64 height = 1;
+  bytes last_block_hash = 2;
+  // bytes state_hash = 3; // Hash of the state data itself (for integrity check)
+  // uint64 size_bytes = 4; // Size of the snapshot file/data
+}
+
+message SnapshotsAvailableMessage {
+  repeated SnapshotMetadata available_snapshots = 1;
+}
+
+message GetSnapshotChunkMessage {
+  uint64 snapshot_height = 1;
+  uint64 chunk_index = 2;
+  uint64 chunk_size = 3;
+}
+
+message SnapshotChunkMessage {
+  uint64 snapshot_height = 1;
+  uint64 chunk_index = 2;
+  bytes chunk_data = 3;
+  bool is_last_chunk = 4;
+}

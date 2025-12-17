@@ -1,0 +1,271 @@
+//
+// Created by Chronos | 2025 | Belgium
+//
+
+/**
+ * @file transaction.cpp
+ * @brief This file implements the Transaction class, representing a transfer of value in the Chronos ledger.
+ *
+ * The Transaction class implementation includes methods for constructing transactions,
+ * generating a hash for signing, and handling serialization/deserialization to and from
+ * byte vectors and JSON objects. It also provides a mechanism for validating the transaction's integrity.
+ *
+ * Key functions implemented:
+ * - `Transaction::Transaction`: Constructor for creating new transactions.
+ * - `Transaction::get_hash_for_signing`: Computes a hash of the transaction's core data.
+ * - `Transaction::serialize`: Converts the transaction into a byte stream.
+ * - `Transaction::deserialize`: Reconstructs a transaction from a byte stream.
+ * - `Transaction::to_json`: Converts the transaction into a JSON object.
+ * - `Transaction::from_json`: Populates the transaction from a JSON object.
+ * - `Transaction::is_valid`: Validates the transaction's internal consistency.
+ */
+
+#include "ledger/transaction.hpp"
+#include "crypto/blake3.hpp"
+#include "util/codec.hpp"
+#include "util/bytes.hpp" // For bytes_to_hex and hex_to_bytes
+#include <nlohmann/json.hpp> // For JSON serialization/deserialization
+#include <stdexcept>
+#include <cstring> // For memcpy
+
+namespace chrono_ledger {
+
+/**
+ * @brief Constructor for creating a new transaction.
+ *
+ * Initializes a new transaction with the specified sender, recipient, amount, fee, and nonce.
+ * It performs initial validation checks to ensure that both sender and recipient addresses are valid,
+ * that the transaction has either an amount or a fee (or both), and that the sum of amount and fee
+ * does not result in an overflow.
+ *
+ * @param sender The address of the sender.
+ * @param recipient The address of the recipient.
+ * @param amount The amount of value to transfer.
+ * @param fee The transaction fee.
+ * @param nonce The transaction nonce.
+ * @throw std::invalid_argument if sender or recipient address is invalid, or if both amount and fee are zero.
+ * @throw std::overflow_error if the sum of amount and fee overflows `uint64_t`.
+ */
+Transaction::Transaction(const chrono_address::Address& sender,
+                         const chrono_address::Address& recipient,
+                         uint64_t amount,
+                         uint64_t fee,
+                         uint64_t nonce)
+    : sender(sender), recipient(recipient), amount(amount), fee(fee), nonce(nonce) {
+    if (!sender.is_valid() || !recipient.is_valid()) {
+        throw std::invalid_argument("Sender or recipient address is invalid.");
+    }
+    if (amount == 0 && fee == 0) {
+        throw std::invalid_argument("Transaction must have amount or fee.");
+    }
+    // Check for overflow when summing amount and fee
+    if (amount > (UINT64_MAX - fee)) { 
+        throw std::overflow_error("Amount + fee overflowed.");
+    }
+}
+
+/**
+ * @brief Returns a hash of the transaction data (excluding signature) for signing.
+ *
+ * Canonical hash format:
+ * - sender_address_bytes (20 bytes fixed)
+ * - recipient_address_bytes (20 bytes fixed)
+ * - amount (uint64_t LE)
+ * - fee (uint64_t LE)
+ * - nonce (uint64_t LE)
+ *
+ * @return A `Bytes` object containing the 32-byte BLAKE3 hash of the transaction data.
+ */
+Bytes Transaction::get_hash_for_signing() const {
+    Bytes data_to_hash;
+    
+    // Add sender address bytes (fixed 20 bytes)
+    const auto& sender_bytes = sender.get_bytes();
+    data_to_hash.insert(data_to_hash.end(), sender_bytes.begin(), sender_bytes.end());
+    
+    // Add recipient address bytes (fixed 20 bytes)
+    const auto& recipient_bytes = recipient.get_bytes();
+    data_to_hash.insert(data_to_hash.end(), recipient_bytes.begin(), recipient_bytes.end());
+
+    // Add amount (uint64_t LE)
+    chrono_util::write_fixed_uint64_le(amount, data_to_hash);
+
+    // Add fee (uint64_t LE)
+    chrono_util::write_fixed_uint64_le(fee, data_to_hash);
+
+    // Add nonce (uint64_t LE)
+    chrono_util::write_fixed_uint64_le(nonce, data_to_hash);
+
+    return chrono_crypto::blake3(data_to_hash);
+}
+
+/**
+ * @brief Serializes the transaction into a byte vector using canonical format.
+ *
+ * Canonical serialization format (little-endian):
+ * - sender_address_bytes (20 bytes fixed)
+ * - recipient_address_bytes (20 bytes fixed)
+ * - amount (uint64_t LE)
+ * - fee (uint64_t LE)
+ * - signature_length (uint32_t LE, not size_t)
+ * - signature_bytes (variable)
+ * - nonce (uint64_t LE)
+ *
+ * @return A `Bytes` object containing the serialized representation of the transaction.
+ */
+Bytes Transaction::serialize() const {
+    Bytes serialized_data;
+
+    // Add sender address bytes (fixed 20 bytes)
+    const auto& sender_bytes = sender.get_bytes();
+    serialized_data.insert(serialized_data.end(), sender_bytes.begin(), sender_bytes.end());
+
+    // Add recipient address bytes (fixed 20 bytes)
+    const auto& recipient_bytes = recipient.get_bytes();
+    serialized_data.insert(serialized_data.end(), recipient_bytes.begin(), recipient_bytes.end());
+
+    // Add amount (uint64_t LE)
+    chrono_util::write_fixed_uint64_le(amount, serialized_data);
+
+    // Add fee (uint64_t LE)
+    chrono_util::write_fixed_uint64_le(fee, serialized_data);
+
+    // Add signature with length prefix (uint32_t LE, not size_t)
+    chrono_util::write_fixed_uint32_le(static_cast<uint32_t>(signature.size()), serialized_data);
+    serialized_data.insert(serialized_data.end(), signature.begin(), signature.end());
+
+    // Add nonce (uint64_t LE)
+    chrono_util::write_fixed_uint64_le(nonce, serialized_data);
+
+    return serialized_data;
+}
+
+/**
+ * @brief Deserializes a byte vector into a Transaction object.
+ *
+ * This static method reconstructs a `Transaction` object from its canonical serialized byte representation.
+ * It parses the byte array in little-endian format with fixed-width types, extracting each field in order.
+ *
+ * Expected format:
+ * - sender_address_bytes (20 bytes fixed)
+ * - recipient_address_bytes (20 bytes fixed)
+ * - amount (uint64_t LE)
+ * - fee (uint64_t LE)
+ * - signature_length (uint32_t LE)
+ * - signature_bytes (variable)
+ * - nonce (uint64_t LE)
+ *
+ * @param data A `Bytes` object containing the serialized transaction data.
+ * @return A `Transaction` object reconstructed from the input data.
+ * @throw std::runtime_error if the input data is too short or malformed.
+ */
+Transaction Transaction::deserialize(const Bytes& data) {
+    size_t offset = 0;
+
+    // Minimum size check: 20 (sender) + 20 (recipient) + 8 (amount) + 8 (fee) + 4 (sig_len) + 8 (nonce)
+    const size_t MIN_TX_SIZE = 20 + 20 + 8 + 8 + 4 + 8;
+    if (data.size() < MIN_TX_SIZE) {
+        throw std::runtime_error("Transaction data too short for deserialization.");
+    }
+
+    // Read sender address (20 bytes fixed)
+    chrono_address::Address sender_addr(Bytes(data.begin() + offset, data.begin() + offset + 20));
+    offset += 20;
+
+    // Read recipient address (20 bytes fixed)
+    chrono_address::Address recipient_addr(Bytes(data.begin() + offset, data.begin() + offset + 20));
+    offset += 20;
+
+    // Read amount (uint64_t LE)
+    uint64_t amount_val = chrono_util::read_fixed_uint64_le(data, offset);
+
+    // Read fee (uint64_t LE)
+    uint64_t fee_val = chrono_util::read_fixed_uint64_le(data, offset);
+
+    // Read signature length (uint32_t LE, not size_t)
+    uint32_t sig_size = chrono_util::read_fixed_uint32_le(data, offset);
+
+    // Check if there's enough data for the signature and nonce
+    if (offset + sig_size + 8 > data.size()) {
+        throw std::runtime_error("Transaction data too short for signature or nonce.");
+    }
+
+    // Read signature bytes
+    Bytes signature_val(data.begin() + offset, data.begin() + offset + sig_size);
+    offset += sig_size;
+
+    // Read nonce (uint64_t LE)
+    uint64_t nonce_val = chrono_util::read_fixed_uint64_le(data, offset);
+
+    // Create and populate transaction
+    Transaction tx(sender_addr, recipient_addr, amount_val, fee_val, nonce_val);
+    tx.signature = signature_val;
+    return tx;
+}
+
+/**
+ * @brief Converts the transaction to a JSON object.
+ *
+ * This method serializes the transaction's data into a human-readable
+ * `nlohmann::json` object. Addresses are converted to their string representation,
+ * and the signature (a byte array) is converted to a hexadecimal string.
+ *
+ * @return A `nlohmann::json` object representing the transaction.
+ */
+std::string Transaction::to_string() const {
+    return to_json().dump();
+}
+
+/**
+ * @brief Converts the transaction to a JSON object.
+ *
+ * This method serializes the transaction's data into a human-readable
+ * `nlohmann::json` object. Addresses are converted to their string representation,
+ * and the signature (a byte array) is converted to a hexadecimal string.
+ *
+ * @return A `nlohmann::json` object representing the transaction.
+ */
+nlohmann::json Transaction::to_json() const {
+    nlohmann::json j;
+    j["sender"] = sender.to_string(); // Assuming Address has a to_string() method
+    j["recipient"] = recipient.to_string(); // Assuming Address has a to_string() method
+    j["amount"] = amount;
+    j["fee"] = fee;
+    j["signature"] = chrono_util::bytes_to_hex(signature);
+    j["nonce"] = nonce;
+    return j;
+}
+
+/**
+ * @brief Populates the transaction from a JSON object.
+ *
+ * This method deserializes a `nlohmann::json` object and uses its content to populate the
+ * fields of the `Transaction` object. Address strings are used to construct `Address` objects,
+ * and the hexadecimal signature string is converted back to a byte array.
+ *
+ * @param j A `nlohmann::json` object containing the transaction's data.
+ */
+void Transaction::from_json(const nlohmann::json& j) {
+    sender = chrono_address::Address(j.at("sender").get<std::string>()); // Assuming Address has a constructor from string
+    recipient = chrono_address::Address(j.at("recipient").get<std::string>()); // Assuming Address has a constructor from string
+    amount = j.at("amount").get<uint64_t>();
+    fee = j.at("fee").get<uint64_t>();
+    signature = chrono_util::hex_to_bytes(j.at("signature").get<std::string>());
+    nonce = j.at("nonce").get<uint64_t>();
+}
+
+/**
+ * @brief Checks if the transaction is valid.
+ *
+ * This method performs various validation checks to ensure the internal consistency
+ * and correctness of the transaction. It verifies that both sender and recipient addresses
+ * are valid, that the transaction has a non-zero amount or fee, and that the sum of
+ * amount and fee does not overflow `uint64_t`.
+ *
+ * @return `true` if the transaction passes all internal validation checks, `false` otherwise.
+ */
+bool Transaction::is_valid() const {
+    return sender.is_valid() && recipient.is_valid() && (amount > 0 || fee > 0) && (amount + fee >= amount);
+}
+
+} // namespace chrono_ledger
