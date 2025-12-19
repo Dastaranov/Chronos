@@ -118,6 +118,25 @@ public:
     bool deserialize_from_bytes(const chrono_util::Bytes& data);
 
     /**
+     * @brief Gets the total circulating supply.
+     * @return The total supply in nanos.
+     */
+    uint64_t get_total_supply() const { return total_circulating_supply_; }
+
+    /**
+     * @brief Validates if the current supply is within the maximum limit.
+     * @param max_supply The maximum allowed supply.
+     * @return true if valid, false otherwise.
+     */
+    bool validate_total_supply(uint64_t max_supply) const;
+
+    /**
+     * @brief Updates the circulating supply.
+     * @param delta The amount to add (positive) or subtract (negative).
+     */
+    void update_circulating_supply(int64_t delta);
+
+    /**
      * @brief Sets the balance for a given address (used for genesis allocation).
      *
      * Validates the address format and checks for balance overflow against max supply.
@@ -165,6 +184,9 @@ private:
     chrono_storage::IKv& kv_store_; // Reverted to reference
     ///< @var Mutex to ensure thread-safe access to the `balances_` and `nonces_` maps.
     mutable std::mutex balances_mutex_;
+
+    ///< @var Total circulating supply of tokens in nanos.
+    uint64_t total_circulating_supply_ = 0;
 };
 
 } // namespace chrono_ledger

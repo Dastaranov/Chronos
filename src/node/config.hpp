@@ -74,7 +74,12 @@ struct Config {
     std::string private_key = ""; ///< @var private_key The secret private key for this node (hex-encoded).
 
     // Tokenomics settings
-    uint64_t block_reward_nanos = 100000000; ///< @var block_reward_nanos Block reward in nanos.
+    uint64_t max_total_supply = 31556926;
+    uint64_t initial_block_reward_nanos = 0;
+    bool minting_enabled = false;
+    uint64_t reward_halving_interval = 0;
+    uint8_t fee_burn_percentage = 0;
+    uint8_t token_decimals = 9;
     uint64_t base_fee_nanos = 1000; ///< @var base_fee_nanos Base transaction fee in nanos.
 
     // Genesis settings

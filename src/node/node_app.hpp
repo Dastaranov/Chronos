@@ -406,6 +406,14 @@ private:
   // Blockchain state trackers
   chrono_util::Bytes last_block_hash_; ///< @var The hash of the most recent block in the chain.
   uint64_t next_block_height_;     ///< @var The height of the next block to be added.
+  chrono_util::Bytes genesis_block_hash_; ///< @var The hash of the genesis block.
+
+  /**
+   * @brief Calculates the block reward for a given height based on tokenomics.
+   * @param height The block height.
+   * @return The reward in nanos.
+   */
+  uint64_t calculate_block_reward(uint64_t height) const;
 
   // Network synchronization state
   bool is_syncing_ = false;              ///< @var True if node is currently syncing blocks from peers.

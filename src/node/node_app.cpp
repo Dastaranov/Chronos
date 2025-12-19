@@ -65,6 +65,11 @@ NodeApp::NodeApp(const chrono_node::Config& cfg)
       rpc_(std::make_unique<JsonRpcServer>(cfg_.rpc_port, state_, *this)), // Initialize JSON-RPC server
       blockchain_storage_(nullptr) // Initialize blockchain storage pointer to nullptr
 {
+    // Validate tokenomics consistency
+    if (cfg_.max_total_supply == 0) {
+        throw std::runtime_error("FATAL: max_total_supply cannot be zero");
+    }
+
     // Initialize Signer
     if (cfg_.private_key.empty()) {
         LOG_ERROR(chrono_util::LogCategory::CRYPTO, "Private key is not configured. A validator node cannot run without a private key.");
@@ -153,43 +158,6 @@ NodeApp::~NodeApp() {
 void NodeApp::run() {
     LOG_INFO(chrono_util::LogCategory::GENERAL, "NodeApp running...");
 
-    // Attempt to start P2P listening on the configured address and port. Log an error and exit if it fails.
-    if (!gossip_->start_listening(cfg_.listen_addr, cfg_.listen_port)) {
-        LOG_ERROR(chrono_util::LogCategory::GENERAL, "Failed to start P2P listening on {}:{}", cfg_.listen_addr, cfg_.listen_port);
-        return;
-    }
-
-    // Iterate through configured seed peers and attempt to establish connections.
-    // For each seed peer, parse its host and port, then connect via the gossip layer.
-    for (const auto& peer : cfg_.network_seeds) {
-        size_t colon_pos = peer.find(':');
-        if (colon_pos != std::string::npos) {
-            std::string host = peer.substr(0, colon_pos);
-            int port = std::stoi(peer.substr(colon_pos + 1));
-            if (gossip_->connect_to_peer(host, port)) {
-                LOG_INFO(chrono_util::LogCategory::GENERAL, "Connected to seed peer: {}", peer);
-                send_handshake(peer); // Send initial handshake message to the newly connected peer.
-            } else {
-                LOG_WARN(chrono_util::LogCategory::GENERAL, "Failed to connect to seed peer: {}", peer);
-            }
-        }
-    }
-
-    // Start the RPC server in a detached background thread.
-    // The RPC server handles incoming client requests.
-    std::thread rpc_thread([this]() {
-        if (rpc_) {
-            rpc_->serve();
-        } else {
-            LOG_ERROR(chrono_util::LogCategory::GENERAL, "RPC server not initialized.");
-        }
-    });
-    rpc_thread.detach();
-
-    // Start the ExternalTimeSourceManager to begin periodically fetching time measurements
-    // from external NTP sources. These measurements will be fed into the PoTAggregator.
-    external_time_manager_->start();
-
     uint64_t loaded_next_block_height = 0;
     chrono_util::Bytes loaded_last_block_hash;
 
@@ -210,6 +178,14 @@ void NodeApp::run() {
             next_block_height_ = loaded_next_block_height;
         }
         LOG_INFO(chrono_util::LogCategory::CONSENSUS, "Loaded blockchain state: height = {}, last_hash = {}", loaded_next_block_height, bytes_to_hex(loaded_last_block_hash));
+        
+        // Load genesis hash
+        auto genesis_blk = blockchain_storage_->getBlock(0);
+        if (genesis_blk) {
+            genesis_block_hash_ = genesis_blk->get_header_hash();
+        } else {
+             LOG_WARN(chrono_util::LogCategory::CONSENSUS, "Could not load genesis block (height 0). Genesis hash validation in handshake might fail.");
+        }
     } else {
         // First run: create and store a genesis block
         LOG_INFO(chrono_util::LogCategory::CONSENSUS, "No blockchain state found. Creating genesis block...");
@@ -267,8 +243,46 @@ void NodeApp::run() {
             last_block_hash_ = genesis_block.get_header_hash();
             next_block_height_ = 1; // Genesis block height 0, next block height 1
         }
+        genesis_block_hash_ = genesis_block.get_header_hash();
         LOG_INFO(chrono_util::LogCategory::CONSENSUS, "Genesis block created with hash: {}", bytes_to_hex(genesis_block.get_header_hash()));
     }
+
+    // Attempt to start P2P listening on the configured address and port. Log an error and exit if it fails.
+    if (!gossip_->start_listening(cfg_.listen_addr, cfg_.listen_port)) {
+        LOG_ERROR(chrono_util::LogCategory::GENERAL, "Failed to start P2P listening on {}:{}", cfg_.listen_addr, cfg_.listen_port);
+        return;
+    }
+
+    // Iterate through configured seed peers and attempt to establish connections.
+    // For each seed peer, parse its host and port, then connect via the gossip layer.
+    for (const auto& peer : cfg_.network_seeds) {
+        size_t colon_pos = peer.find(':');
+        if (colon_pos != std::string::npos) {
+            std::string host = peer.substr(0, colon_pos);
+            int port = std::stoi(peer.substr(colon_pos + 1));
+            if (gossip_->connect_to_peer(host, port)) {
+                LOG_INFO(chrono_util::LogCategory::GENERAL, "Connected to seed peer: {}", peer);
+                send_handshake(peer); // Send initial handshake message to the newly connected peer.
+            } else {
+                LOG_WARN(chrono_util::LogCategory::GENERAL, "Failed to connect to seed peer: {}", peer);
+            }
+        }
+    }
+
+    // Start the RPC server in a detached background thread.
+    // The RPC server handles incoming client requests.
+    std::thread rpc_thread([this]() {
+        if (rpc_) {
+            rpc_->serve();
+        } else {
+            LOG_ERROR(chrono_util::LogCategory::GENERAL, "RPC server not initialized.");
+        }
+    });
+    rpc_thread.detach();
+
+    // Start the ExternalTimeSourceManager to begin periodically fetching time measurements
+    // from external NTP sources. These measurements will be fed into the PoTAggregator.
+    external_time_manager_->start();
 
     // Initialize BFT state to match the loaded blockchain state.
     uint64_t current_bft_height = next_block_height_;
@@ -1272,6 +1286,8 @@ void NodeApp::send_handshake(const std::string& peer_addr) {
     }
     handshake_msg->set_last_block_hash(current_block_hash.data(), current_block_hash.size());
     handshake_msg->set_current_block_height(current_height > 0 ? current_height - 1 : 0); // current height is next_block_height_ - 1
+    handshake_msg->set_genesis_hash(chrono_util::bytes_to_hex(genesis_block_hash_));
+    handshake_msg->set_max_total_supply(cfg_.max_total_supply);
 
     gossip_->publish("handshake", handshake_envelope);
     LOG_INFO(chrono_util::LogCategory::GENERAL, "Sent handshake to peer: {}", peer_addr);
@@ -1733,6 +1749,22 @@ bool NodeApp::validate_handshake_message(const chrono_p2p::HandshakeMessage& msg
         return false;
     }
     
+    // Check max_total_supply
+    if (msg.max_total_supply() != cfg_.max_total_supply) {
+        LOG_WARN(chrono_util::LogCategory::P2P, 
+                  "Peer {} has incompatible max_total_supply: {} vs our {}",
+                  sender_id, msg.max_total_supply(), cfg_.max_total_supply);
+        return false;
+    }
+
+    // Check genesis_hash
+    if (!msg.genesis_hash().empty() && msg.genesis_hash() != chrono_util::bytes_to_hex(genesis_block_hash_)) {
+        LOG_WARN(chrono_util::LogCategory::P2P,
+                  "Peer {} has different genesis hash: {} vs our {}",
+                  sender_id, msg.genesis_hash(), chrono_util::bytes_to_hex(genesis_block_hash_));
+        return false;
+    }
+    
     return true;
 }
 
@@ -1826,6 +1858,21 @@ bool NodeApp::validate_get_blocks_message(const chrono_p2p::GetBlocksMessage& ms
     }
     
     return true;
+}
+
+uint64_t NodeApp::calculate_block_reward(uint64_t height) const {
+    if (!cfg_.minting_enabled || cfg_.reward_halving_interval == 0) {
+        return 0;
+    }
+    
+    uint64_t halvings = height / cfg_.reward_halving_interval;
+    uint64_t reward = cfg_.initial_block_reward_nanos;
+    
+    // Apply halving (divide by 2^halvings)
+    for (uint64_t i = 0; i < halvings && reward > 1; ++i) {
+        reward /= 2;
+    }
+    return reward;
 }
 
 } // namespace chrono_node

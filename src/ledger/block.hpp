@@ -51,6 +51,7 @@ public:
     Bytes transactions_merkle_root; ///< @var transactions_merkle_root The Merkle root of all transactions included in this block, ensuring transaction integrity.
     uint64_t height; ///< @var height The block number or height in the blockchain, with the genesis block typically being 0.
     uint64_t consensus_time; ///< @var consensus_time The aggregated Proof-of-Time consensus time when the block was created.
+    uint32_t round; ///< @var round The BFT round in which this block was proposed/finalized.
 
     // Block Body
     std::vector<Transaction> transactions; ///< @var transactions A list of all transactions included in this block.
@@ -73,9 +74,10 @@ public:
      * @param prev_hash The hash of the preceding block.
      * @param height The height of this new block in the blockchain.
      * @param consensus_time The aggregated Proof-of-Time consensus time.
+     * @param round The BFT round number.
      * @param txs A vector of `Transaction` objects to be included in this block.
      */
-    Block(const Bytes& prev_hash, uint64_t height, uint64_t consensus_time, const std::vector<Transaction>& txs);
+    Block(const Bytes& prev_hash, uint64_t height, uint64_t consensus_time, uint32_t round, const std::vector<Transaction>& txs);
 
     /**
      * @brief Calculates the cryptographic hash of the block header.

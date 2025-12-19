@@ -132,7 +132,12 @@ Config Config::load(const std::string& file_path) {
 
     // --- Tokenomics settings ---
     if (auto tokenomics_tbl = tbl["tokenomics"].as_table()) {
-        cfg.block_reward_nanos = (*tokenomics_tbl)["block_reward_nanos"].value_or(cfg.block_reward_nanos);
+        cfg.max_total_supply = (*tokenomics_tbl)["max_total_supply"].value_or(cfg.max_total_supply);
+        cfg.initial_block_reward_nanos = (*tokenomics_tbl)["initial_block_reward_nanos"].value_or(cfg.initial_block_reward_nanos);
+        cfg.minting_enabled = (*tokenomics_tbl)["minting_enabled"].value_or(cfg.minting_enabled);
+        cfg.reward_halving_interval = (*tokenomics_tbl)["reward_halving_interval"].value_or(cfg.reward_halving_interval);
+        cfg.fee_burn_percentage = (*tokenomics_tbl)["fee_burn_percentage"].value_or(cfg.fee_burn_percentage);
+        cfg.token_decimals = (*tokenomics_tbl)["token_decimals"].value_or(cfg.token_decimals);
         cfg.base_fee_nanos = (*tokenomics_tbl)["base_fee_nanos"].value_or(cfg.base_fee_nanos);
     }
 

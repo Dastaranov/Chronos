@@ -109,11 +109,12 @@ private_key = "90946415a42522c0ebc41cec0473c2b39fee79c4ad5477d13959bd7934527e488
 # --- Tokenomics ---
 # Defines the economic parameters of the blockchain.
 [tokenomics]
-# block_reward_nanos: The reward amount (in the smallest unit, "nanos") given to a block producer.
-# 100,000,000 nanos = 1 CQC (example).
-block_reward_nanos = 100000000
-
-# base_fee_nanos: The base fee for processing a transaction.
+max_total_supply = 31556926
+initial_block_reward_nanos = 0
+minting_enabled = false
+reward_halving_interval = 0  # Derived from blocks_per_year * 2
+fee_burn_percentage = 0
+token_decimals = 9  # nanos = 10^9
 base_fee_nanos = 1000
 
 

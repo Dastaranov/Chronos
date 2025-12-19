@@ -43,20 +43,28 @@ State::State(chrono_storage::IKv& kv_store) : kv_store_(kv_store) {
 void State::load_balances() {
     std::lock_guard<std::mutex> lock(balances_mutex_);
     auto balances_data = kv_store_.get(BALANCES_KEY);
+    total_circulating_supply_ = 0;
     if (balances_data) {
         try {
             nlohmann::json balances_json = nlohmann::json::parse(*balances_data);
             balances_ = balances_json.get<std::unordered_map<std::string, uint64_t>>();
+            
+            // Calculate total supply
+            for (const auto& pair : balances_) {
+                total_circulating_supply_ += pair.second;
+            }
         } catch (const nlohmann::json::parse_error& e) {
             // If parsing fails, it could be due to corrupted data.
             // As a fallback, we initialize a genesis state.
             balances_.clear();
             balances_["cqc1qru6j2c93t8k6l3x5x6y6z6j6"] = 1000000;
+            total_circulating_supply_ = 1000000;
             save_balances();
         }
     } else {
         // If no balances are found, this is the first run. Initialize the genesis state.
         balances_["cqc1qru6j2c93t8k6l3x5x6y6z6j6"] = 1000000;
+        total_circulating_supply_ = 1000000;
         save_balances();
     }
 }
@@ -182,6 +190,7 @@ void State::credit(const std::string& addr, uint64_t amount) {
         return;
     }
     balances_[addr] = current_balance + amount;
+    total_circulating_supply_ += amount;
     save_balances();
 }
 
@@ -205,6 +214,16 @@ void State::set_balance(const std::string& addr, uint64_t balance, uint64_t max_
     }
     
     std::lock_guard<std::mutex> lock(balances_mutex_);
+    
+    // Update supply
+    auto it = balances_.find(addr);
+    uint64_t old_balance = (it != balances_.end()) ? it->second : 0;
+    if (balance > old_balance) {
+        total_circulating_supply_ += (balance - old_balance);
+    } else {
+        total_circulating_supply_ -= (old_balance - balance);
+    }
+
     balances_[addr] = balance;
     // Note: nonce remains 0 for genesis allocations
     save_balances();
@@ -300,6 +319,7 @@ bool State::deserialize_from_bytes(const chrono_util::Bytes& data) {
     // Clear existing state
     balances_.clear();
     nonces_.clear();
+    total_circulating_supply_ = 0;
     
     // Read each account
     for (uint32_t i = 0; i < account_count; ++i) {
@@ -330,6 +350,7 @@ bool State::deserialize_from_bytes(const chrono_util::Bytes& data) {
         
         balances_[addr] = balance;
         nonces_[addr] = nonce;
+        total_circulating_supply_ += balance;
     }
     
     return true;
