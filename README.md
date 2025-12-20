@@ -225,9 +225,23 @@ cmake .. -DCHRONOS_USE_OQS=ON
 *   **`liboqs` not found:** If `CHRONOS_USE_OQS` is enabled, ensure `liboqs` is installed and its include/library paths are correctly provided to CMake. Alternatively, set `-DCHRONOS_USE_OQS=OFF`.
 *   **Build errors:** Verify your C++ compiler (GCC 10+, Clang 12+) and CMake (v3.18+) versions meet the prerequisites.
 
+## Genesis Block and Network Initialization
+
+The genesis hash is a critical component that ensures all nodes in the network start from the same initial state. For detailed information about how the genesis hash works and how to configure it for your network, see:
+
+*   `GENESIS_HASH_EXPLAINED.md` (Nederlandse uitleg)
+*   `GENESIS_HASH_EXPLAINED_EN.md` (English explanation)
+
+**Quick Start:**
+1. Configure `genesis.consensus_time` and `genesis.allocations` in `config/default.toml`
+2. Start the first node to generate the genesis hash
+3. Copy the hash to `genesis.expected_hash` in the configuration
+4. Distribute the complete configuration file to all network participants
+
 ## Further Information
 
 For more detailed information, including answers to frequently asked questions and an in-depth look at the project's internal workings, please refer to:
 
 *   `FAQ.md`
 *   `Repository.md`
+*   `GENESIS_HASH_EXPLAINED.md` / `GENESIS_HASH_EXPLAINED_EN.md` - Genesis block and network synchronization
