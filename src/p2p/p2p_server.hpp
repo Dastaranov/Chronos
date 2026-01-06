@@ -33,94 +33,47 @@
 #include "util/log.hpp"
 #include "node/node_status.hpp" // Include NodeStatus
 
+#include "crypto/kyber_crypto.hpp"
+#include "crypto/aes_crypto.hpp"
+#include "crypto/blake3.hpp"
+
 namespace chrono_p2p {
 
 /**
  * @class P2pServer
- * @brief Provides server-side functionalities for listening to and handling P2P connections.
- *
- * This class sets up a TCP server that listens on a specified port for incoming peer connections.
- * It manages accepted client connections, reads messages from them, and dispatches these messages
- * to a user-defined handler. Each client connection is handled in its own thread.
+ * @brief Provides server-side functionalities for listening to and handling P2P connections with Kyber encryption.
  */
 class P2pServer {
 public:
-    /**
-     * @brief Type alias for a message handler function.
-     *
-     * This function type defines the signature for callbacks that process messages received
-     * from connected clients. It takes the client's socket descriptor and the received message string.
-     */
     using MessageHandler = std::function<void(const std::string& sender_addr, const std::string& message)>;
 
-    /**
-     * @brief Constructs a P2pServer object.
-     *
-     * Initializes the server with the port it should listen on and a callback function
-     * to handle messages received from connected clients.
-     *
-     * @param port The port number on which the server will listen for incoming connections.
-     * @param handler The `MessageHandler` function to be called when a message is received from a client.
-     * @param status A reference to the NodeStatus object to update connected peer count.
-     */
     P2pServer(int port, MessageHandler handler, chrono_node::NodeStatus& status);
-
-    /**
-     * @brief Destroys the P2pServer object.
-     *
-     * Ensures that the server is properly stopped and all associated resources (sockets, threads)
-     * are cleaned up when the server object is destroyed.
-     */
     ~P2pServer();
 
-    /**
-     * @brief Starts the P2P server.
-     *
-     * This method initiates the server's listening process in a separate thread, allowing it
-     * to accept incoming client connections.
-     */
     bool start();
-
-    /**
-     * @brief Stops the P2P server.
-     *
-     * This method signals the server thread to terminate, closes the listening socket,
-     * and joins the server thread to ensure a clean shutdown.
-     */
     void stop();
 
 private:
-    int port_; ///< @var port_ The port number the server is listening on.
-    int server_fd_; ///< @var server_fd_ The file descriptor for the server's listening socket.
-    MessageHandler message_handler_; ///< @var message_handler_ The callback function to process messages from clients.
-    std::thread server_thread_; ///< @var server_thread_ The thread in which the server's main loop runs.
-    bool running_; ///< @var running_ A flag indicating whether the server is currently running.
-    chrono_node::NodeStatus& status_; ///< @var status_ Reference to the node's status object for updating connected peer count.
+    int port_;
+    int server_fd_;
+    MessageHandler message_handler_;
+    std::thread server_thread_;
+    bool running_;
+    chrono_node::NodeStatus& status_;
 
-    // Helper methods for socket I/O
-    // Helper to send exactly N bytes
     bool send_n_bytes(int socket_fd, const void* buffer, size_t n_bytes);
-    // Helper to receive exactly N bytes
     bool recv_n_bytes(int socket_fd, void* buffer, size_t n_bytes);
 
-    /**
-     * @brief The main loop for the server thread.
-     *
-     * This method continuously listens for and accepts new client connections.
-     * Each accepted client connection is then passed to `handle_client` in a new thread.
-     */
     void run_server();
+    void handle_client(int client_socket, const std::string& client_address, const std::string& client_ip);
+    
+    // Handshake
+    bool perform_handshake(int client_socket, chrono_util::Bytes& session_key);
 
-    /**
-     * @brief Handles communication with an individual connected client.
-     *
-     * This method runs in a separate thread for each client. It continuously reads
-     * messages from the client's socket and dispatches them to the `message_handler_`.
-     * It also handles client disconnections and read errors.
-     *
-     * @param client_socket The socket file descriptor for the connected client.
-     */
-    void handle_client(int client_socket, const std::string& client_address);
+    // IP Limiting
+    std::unordered_map<std::string, int> ip_counts_;
+    std::mutex ip_counts_mutex_;
+    const int MAX_PEERS_PER_IP = 2; // Allow max 2 connections per IP (e.g. 1 full node + 1 light client or similar)
 };
 
 } // namespace chrono_p2p

@@ -50,7 +50,7 @@ TEST_CASE(TransactionZeroAmountValidation, "Transaction Zero Amount Validation")
     
     // Transaction constructor allows zero amount IF fee > 0
     // It only throws if BOTH amount and fee are zero
-    Transaction tx_zero_amount(sender, recipient, 0, 10, 0);
+    Transaction tx_zero_amount(sender, recipient, 0, 10, 0, signer1.get_public_key());
     tx_zero_amount.signature = signer1.sign(tx_zero_amount.get_hash_for_signing());
     
     ASSERT_EQ(0, tx_zero_amount.amount, "Transaction amount is zero");
@@ -63,7 +63,7 @@ TEST_CASE(TransactionZeroAmountValidation, "Transaction Zero Amount Validation")
     // Test that BOTH zero amount and zero fee are rejected by constructor
     bool both_zero_rejected = false;
     try {
-        Transaction tx_both_zero(sender, recipient, 0, 0, 0);
+        Transaction tx_both_zero(sender, recipient, 0, 0, 0, signer1.get_public_key());
     } catch (const std::invalid_argument& e) {
         both_zero_rejected = true;
         // Expected: "Transaction must have amount or fee."
@@ -85,13 +85,13 @@ TEST_CASE(TransactionMinimumFeeValidation, "Transaction Minimum Fee Validation")
     const uint64_t MIN_FEE = 1;
     
     // Transaction with fee = 0 should be rejected
-    Transaction tx_no_fee(sender, recipient, 100, 0, 0);
+    Transaction tx_no_fee(sender, recipient, 100, 0, 0, signer1.get_public_key());
     tx_no_fee.signature = signer1.sign(tx_no_fee.get_hash_for_signing());
     ASSERT_EQ(0, tx_no_fee.fee, "Fee is zero");
     ASSERT_TRUE(tx_no_fee.fee < MIN_FEE, "Fee is below minimum");
     
     // Transaction with fee = MIN_FEE should be accepted
-    Transaction tx_min_fee(sender, recipient, 100, MIN_FEE, 0);
+    Transaction tx_min_fee(sender, recipient, 100, MIN_FEE, 0, signer1.get_public_key());
     tx_min_fee.signature = signer1.sign(tx_min_fee.get_hash_for_signing());
     ASSERT_EQ(MIN_FEE, tx_min_fee.fee, "Fee equals minimum");
     ASSERT_FALSE(tx_min_fee.fee < MIN_FEE, "Fee is not below minimum");
@@ -118,7 +118,7 @@ TEST_CASE(TransactionOverflowValidation, "Transaction Overflow Validation") {
     // We verify the overflow detection logic works:
     bool overflow_detected = false;
     try {
-        Transaction tx_overflow(sender, recipient, amount, fee, 0);
+        Transaction tx_overflow(sender, recipient, amount, fee, 0, signer1.get_public_key());
         // Should not reach here
     } catch (const std::overflow_error& e) {
         overflow_detected = true;
@@ -144,7 +144,7 @@ TEST_CASE(TransactionValidEnhancedValidation, "Transaction Valid Enhanced Valida
     const uint64_t MIN_FEE = 1;
     
     // Create properly formed transaction
-    Transaction tx(sender, recipient, 100, MIN_FEE, 0);
+    Transaction tx(sender, recipient, 100, MIN_FEE, 0, signer1.get_public_key());
     tx.signature = signer1.sign(tx.get_hash_for_signing());
     
     // Verify all checks would pass
@@ -169,7 +169,7 @@ TEST_CASE(TransactionMaximumValidAmounts, "Transaction Maximum Valid Amounts") {
     uint64_t max_safe_amount = UINT64_MAX - 1000;
     uint64_t safe_fee = 100;
     
-    Transaction tx_max(sender, recipient, max_safe_amount, safe_fee, 0);
+    Transaction tx_max(sender, recipient, max_safe_amount, safe_fee, 0, signer1.get_public_key());
     tx_max.signature = signer1.sign(tx_max.get_hash_for_signing());
     
     // Verify no overflow

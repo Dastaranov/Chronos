@@ -20,6 +20,8 @@ extern "C" {
 #include "external/blake3/blake3.h"
 }
 
+#include <cstring> // For memcpy
+
 namespace chrono_crypto {
 
 /**
@@ -45,6 +47,9 @@ void blake3_hash(const uint8_t* data, size_t len, uint8_t out32[32]) {
  * This function initializes a BLAKE3 hasher with a secret key, updates it with the provided data,
  * and then finalizes the hash computation, storing the 32-byte result in `out32`.
  * Keyed hashing provides a way to authenticate messages or derive keys.
+ * 
+ * Note: BLAKE3 requires a 32-byte key. If the provided key is not 32 bytes,
+ * it is hashed using standard BLAKE3 to derive a 32-byte key.
  *
  * @param key A pointer to the secret key buffer.
  * @param key_len The length of the secret key in bytes.
@@ -53,8 +58,16 @@ void blake3_hash(const uint8_t* data, size_t len, uint8_t out32[32]) {
  * @param out32 A pointer to a 32-byte array where the computed keyed hash will be stored.
  */
 void blake3_keyed_hash(const uint8_t* key, size_t key_len, const uint8_t* data, size_t data_len, uint8_t out32[32]) {
+    uint8_t key32[32];
+    if (key_len == 32) {
+        std::memcpy(key32, key, 32);
+    } else {
+        // Derive 32-byte key from input key material
+        blake3_hash(key, key_len, key32);
+    }
+
     blake3_hasher hasher; ///< @var hasher An instance of the BLAKE3 hasher context.
-    blake3_hasher_init_keyed(&hasher, key);
+    blake3_hasher_init_keyed(&hasher, key32);
     blake3_hasher_update(&hasher, data, data_len);
     blake3_hasher_finalize(&hasher, out32, 32);
 }

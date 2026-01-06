@@ -184,16 +184,18 @@ TEST_CASE(GenesisHashValidation, "Genesis Hash Validation") {
     genesis1.height = 0;
     genesis1.consensus_time = 1704067200000;
     genesis1.timestamp = 1704067200;  // Must match for deterministic hash
+    genesis1.round = 0; // Must be initialized
     genesis1.transactions = {};
-    genesis1.calculate_merkle_root();
+    genesis1.transactions_merkle_root = genesis1.calculate_merkle_root();
     
     Block genesis2;
     genesis2.prev_block_hash = zero_hash;
     genesis2.height = 0;
     genesis2.consensus_time = 1704067200000;
     genesis2.timestamp = 1704067200;  // Must match for deterministic hash
+    genesis2.round = 0; // Must be initialized
     genesis2.transactions = {};
-    genesis2.calculate_merkle_root();
+    genesis2.transactions_merkle_root = genesis2.calculate_merkle_root();
     
     // Get hashes
     Bytes hash1 = genesis1.get_header_hash();

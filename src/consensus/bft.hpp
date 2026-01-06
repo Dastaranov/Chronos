@@ -23,7 +23,15 @@
 #include <map> // For storing votes
 #include <set> // For storing unique validator IDs
 
+#include <functional> // For std::function
+
 namespace chrono_consensus {
+
+/**
+ * @brief Callback function type for slashing a validator.
+ * Parameters: validator_id, penalty_amount, reason
+ */
+using SlashCallback = std::function<void(const std::string&, uint64_t, const std::string&)>;
 
 /**
  * @enum BftState
@@ -127,9 +135,11 @@ public:
    * @param my_validator_id The identifier for this node.
    * @param quorum_threshold The proportion of votes required for a quorum (e.g., 0.67 for 2/3). Must be between 0.5 and 1.0.
    * @param round_timeout_ms Timeout duration in milliseconds for a consensus round (default 5000ms).
+   * @param time_tier_provider Function to retrieve the current time tier of the node.
    */
   BftGadget(const std::set<std::string>& validators, const std::string& my_validator_id, 
-            double quorum_threshold = 0.67, int round_timeout_ms = 5000);
+            double quorum_threshold = 0.67, int round_timeout_ms = 5000,
+            std::function<uint32_t()> time_tier_provider = [](){ return 5; });
 
   /**
    * @brief Handles an incoming Prevote message from the network.
@@ -162,6 +172,12 @@ public:
    * @return An optional Prevote message if the new round contains a valid proposal to vote on.
    */
   std::optional<chronos::bft::Prevote> handle_new_round(const chronos::bft::NewRound& new_round);
+
+  /**
+   * @brief Forces a transition to a new round locally.
+   * @param reason The reason for forcing a new round.
+   */
+  void force_new_round(const std::string& reason);
 
   /**
    * @brief Deterministically selects a leader for a given height and round.
@@ -224,6 +240,17 @@ public:
    * @return An optional containing the block hash if a precommit quorum exists, `std::nullopt` otherwise.
    */
   std::optional<chrono_util::Bytes> get_finalized_block_hash() const;
+
+  /**
+   * @brief Handles a newly received block.
+   * 
+   * Checks if the block matches the expected proposal for the current round.
+   * If so, validates it and generates a Prevote.
+   * 
+   * @param block The received block.
+   * @return An optional Prevote message if the block is valid and matches the round.
+   */
+  std::optional<chronos::bft::Prevote> on_block_received(const chrono_ledger::Block& block);
 
   /**
    * @brief Gets the current block height of the consensus process.
@@ -334,6 +361,21 @@ public:
    */
   std::optional<chronos::bft::Precommit> create_precommit(const chrono_util::Bytes& block_hash);
 
+  /**
+   * @brief Updates the set of active validators.
+   * 
+   * This should be called when the validator set changes (e.g., at block boundaries due to staking updates).
+   * 
+   * @param new_validators The new set of validator IDs.
+   */
+  void update_validators(const std::set<std::string>& new_validators);
+
+  /**
+   * @brief Sets the callback for slashing validators.
+   * @param callback The function to call when a validator needs to be slashed.
+   */
+  void set_slash_callback(SlashCallback callback) { slash_callback_ = callback; }
+
 private:
   ///< @var The set of all validator IDs participating in consensus.
   std::set<std::string> validators_;
@@ -342,6 +384,12 @@ private:
   ///< @var The proportion of votes required for a quorum (e.g., > 2/3).
   double quorum_threshold_;
   
+  ///< @var Callback for slashing validators.
+  SlashCallback slash_callback_;
+
+  ///< @var Provider for current time tier.
+  std::function<uint32_t()> time_tier_provider_;
+
   ///< @var Pointer to the signer for creating signed BFT messages (not owned).
   chrono_crypto::ISigner* signer_{nullptr};
   
@@ -354,6 +402,8 @@ private:
   
   ///< @var The block proposed by the leader in the current round.
   std::optional<chrono_ledger::Block> current_proposal_;
+  ///< @var The expected hash of the proposal for the current round (from NewRound message).
+  std::optional<chrono_util::Bytes> expected_proposal_hash_;
   
   ///< @var Stores Prevote messages received for the current round, mapped by validator ID.
   std::map<std::string, chronos::bft::Prevote> received_prevotes_;
@@ -370,6 +420,20 @@ private:
   // Timeout tracking
   int round_timeout_ms_{5000};     ///< @var Timeout duration for a round in milliseconds.
   std::chrono::steady_clock::time_point round_start_time_; ///< @var Timestamp when current round started.
+
+  /**
+   * @brief Computes message hash for BFT message signature verification.
+   * @param height Block height.
+   * @param round Consensus round.
+   * @param block_hash Block hash.
+   * @param validator_id Validator ID.
+   * @param time_tier Time Tier.
+   * @return Blake3 hash of the message content.
+   */
+  chrono_util::Bytes compute_bft_message_hash(uint64_t height, uint32_t round, 
+                                              const chrono_util::Bytes& block_hash, 
+                                              const std::string& validator_id,
+                                              uint32_t time_tier) const;
 
   /**
    * @brief Calculates the number of validators required for a quorum.

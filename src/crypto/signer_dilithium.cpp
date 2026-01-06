@@ -58,6 +58,30 @@ SignerDilithium::SignerDilithium() {
     std::memcpy(private_key, full_private_key.data(), sig->length_secret_key);
 }
 
+SignerDilithium::SignerDilithium(const Bytes& public_key_bytes, const Bytes& private_key_bytes) {
+    sig = OQS_SIG_new(OQS_SIG_alg_ml_dsa_65);
+    if (sig == nullptr) {
+        throw std::runtime_error("Failed to create OQS_SIG for ML-DSA-65");
+    }
+
+    if (private_key_bytes.size() != sig->length_secret_key) {
+        OQS_SIG_free(sig);
+        throw std::invalid_argument("Invalid private key size for Dilithium-3");
+    }
+    
+    if (public_key_bytes.size() != sig->length_public_key) {
+        OQS_SIG_free(sig);
+        throw std::invalid_argument("Invalid public key size for Dilithium-3");
+    }
+
+    // Allocate and copy the full private key
+    private_key = new uint8_t[sig->length_secret_key];
+    std::memcpy(private_key, private_key_bytes.data(), sig->length_secret_key);
+
+    // Copy public key
+    public_key = public_key_bytes;
+}
+
 SignerDilithium::SignerDilithium(const Bytes& private_key_bytes) {
     sig = OQS_SIG_new(OQS_SIG_alg_ml_dsa_65);
     if (sig == nullptr) {
@@ -74,9 +98,14 @@ SignerDilithium::SignerDilithium(const Bytes& private_key_bytes) {
     std::memcpy(private_key, private_key_bytes.data(), sig->length_secret_key);
 
     // Extract the public key from the end of the private key data
+    // WARNING: This assumes the private key format includes the public key at the end.
+    // This is NOT guaranteed by liboqs and has been observed to fail.
+    // Use the constructor taking both keys if possible.
     public_key.resize(sig->length_public_key);
     const uint8_t* pk_start_ptr = private_key + (sig->length_secret_key - sig->length_public_key);
     std::memcpy(public_key.data(), pk_start_ptr, sig->length_public_key);
+    
+    LOG_WARN(chrono_util::LogCategory::CRYPTO, "SignerDilithium initialized with private key only. Public key extraction may be incorrect.");
 }
 
 
@@ -130,6 +159,13 @@ Bytes SignerDilithium::sign(const Bytes& message) const {
         throw std::runtime_error("Failed to sign message with Dilithium-3");
     }
     signature.resize(signature_len); // Adjust size to actual signature length
+
+    // Self-verify to ensure signature is valid
+    if (OQS_SIG_verify(sig, message.data(), message.size(), signature.data(), signature.size(), public_key.data()) != OQS_SUCCESS) {
+        LOG_ERROR(chrono_util::LogCategory::CRYPTO, "Self-verification failed immediately after signing!");
+        // throw std::runtime_error("Self-verification failed");
+    }
+
     return signature;
 }
 
@@ -155,6 +191,11 @@ bool SignerDilithium::verify_static(const Bytes& public_key, const Bytes& messag
 
     bool is_valid = (OQS_SIG_verify(sig, message.data(), message.size(), signature.data(), signature.size(), public_key.data()) == OQS_SUCCESS);
     
+    if (!is_valid) {
+        LOG_WARN(chrono_util::LogCategory::CRYPTO, "Dilithium verification failed. MsgLen: {}, SigLen: {}, PubKeyLen: {}", 
+                 message.size(), signature.size(), public_key.size());
+    }
+
     OQS_SIG_free(sig);
     return is_valid;
 }

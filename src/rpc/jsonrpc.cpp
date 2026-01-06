@@ -18,6 +18,7 @@
 #include "address/address.hpp"
 #include "crypto/signer_hmac.hpp"
 #include "node/node_app.hpp" // Added for NodeApp reference
+#include "storage/IBlockchainStorage.hpp" // Added for IBlockchainStorage
 
 namespace chrono_node { // Forward declaration for NodeApp
 
@@ -28,11 +29,12 @@ namespace chrono_node { // Forward declaration for NodeApp
  * main node application instance. Method handlers are registered in the `serve()` method.
  *
  * @param port The port number on which the RPC server will listen.
+ * @param api_key Optional API key for authentication.
  * @param state A reference to the `chrono_ledger::State` object that this RPC server will interact with.
  * @param node_app A reference to the main `chrono_node::NodeApp` instance.
  */
-JsonRpcServer::JsonRpcServer(int port, chrono_ledger::State& state, chrono_node::NodeApp& node_app)
-    : port_(port), state_(state), node_app_(node_app) {
+JsonRpcServer::JsonRpcServer(int port, const std::string& api_key, chrono_ledger::State& state, chrono_node::NodeApp& node_app)
+    : port_(port), api_key_(api_key), state_(state), node_app_(node_app) {
     // Constructor is now intentionally empty, registration moved to serve()
 }
 
@@ -66,9 +68,47 @@ void JsonRpcServer::serve() {
     add("get_balance", [this](const json& params) {
         return handle_get_balance(params);
     });
-    // NEW: Register other RPC handlers here
+    add("get_status", [this](const json& params) {
+        return handle_get_status(params);
+    });
+    add("get_block", [this](const json& params) {
+        return handle_get_block(params);
+    });
+    add("get_transaction", [this](const json& params) {
+        return handle_get_transaction(params);
+    });
+    add("get_nonce", [this](const json& params) {
+        return handle_get_nonce(params);
+    });
+    add("get_candidates", [this](const json& params) {
+        return handle_get_candidates(params);
+    });
+    add("get_peers", [this](const json& params) {
+        return handle_get_peers(params);
+    });
+    add("get_mempool", [this](const json& params) {
+        return handle_get_mempool(params);
+    });
 
     http_server_.Post("/", [this](const httplib::Request& req, httplib::Response& res) {
+        // Check API Key if configured
+        if (!api_key_.empty()) {
+            bool authorized = false;
+            if (req.has_header("Authorization")) {
+                std::string auth = req.get_header_value("Authorization");
+                // Support "Bearer <key>" or just "<key>"
+                if (auth == "Bearer " + api_key_ || auth == api_key_) {
+                    authorized = true;
+                }
+            }
+            
+            if (!authorized) {
+                res.status = 401;
+                res.set_content("Unauthorized: Invalid or missing API Key", "text/plain");
+                return;
+            }
+        }
+
         json response_json;
         try {
             json request_json = json::parse(req.body);
@@ -123,9 +163,9 @@ void JsonRpcServer::serve() {
         res.set_content(response_json.dump(), "application/json");
     });
 
-    LOG_INFO(chrono_util::LogCategory::GENERAL, "JSON-RPC server listening on port {}", port_);
-    if (!http_server_.listen("0.0.0.0", port_)) {
-        LOG_ERROR(chrono_util::LogCategory::GENERAL, "Failed to start HTTP server on port {}", port_);
+    LOG_INFO(chrono_util::LogCategory::GENERAL, "JSON-RPC server listening on {}:{}", node_app_.cfg_.rpc_bind_ip, port_);
+    if (!http_server_.listen(node_app_.cfg_.rpc_bind_ip.c_str(), port_)) {
+        LOG_ERROR(chrono_util::LogCategory::GENERAL, "Failed to start HTTP server on {}:{}", node_app_.cfg_.rpc_bind_ip, port_);
     }
 }
 
@@ -145,18 +185,26 @@ json JsonRpcServer::handle_send_transaction(const json& params) {
     try {
         // Extract transaction details from JSON parameters
         std::string sender_pub_key_hex = params.at("sender_pub_key").get<std::string>();
-        std::string recipient_pub_key_hex = params.at("recipient_pub_key").get<std::string>();
         uint64_t amount = params.at("amount").get<uint64_t>();
         uint64_t fee = params.at("fee").get<uint64_t>();
         uint64_t nonce = params.at("nonce").get<uint64_t>();
         std::string signature_hex = params.at("signature").get<std::string>();
 
         // Convert hex strings to Bytes and then to Address/Signature
-        chrono_address::Address sender_addr(chrono_util::hex_to_bytes(sender_pub_key_hex));
-        chrono_address::Address recipient_addr(chrono_util::hex_to_bytes(recipient_pub_key_hex));
+        Bytes sender_pub_key = chrono_util::hex_to_bytes(sender_pub_key_hex);
+        chrono_address::Address sender_addr(sender_pub_key);
+        
+        chrono_address::Address recipient_addr;
+        if (params.contains("recipient_address")) {
+             recipient_addr = chrono_address::Address(params.at("recipient_address").get<std::string>());
+        } else if (params.contains("recipient_pub_key")) {
+             recipient_addr = chrono_address::Address(chrono_util::hex_to_bytes(params.at("recipient_pub_key").get<std::string>()));
+        } else {
+             return {{"status", "error"}, {"message", "Missing recipient_address or recipient_pub_key"}};
+        }
         
         // Create transaction object without signature first
-        chrono_ledger::Transaction tx(sender_addr, recipient_addr, amount, fee, nonce);
+        chrono_ledger::Transaction tx(sender_addr, recipient_addr, amount, fee, nonce, sender_pub_key);
         // Then set the signature
         tx.signature = chrono_util::hex_to_bytes(signature_hex);
 
@@ -205,6 +253,161 @@ json JsonRpcServer::handle_get_balance(const json& params) {
         return {{"status", "error"}, {"message", "Invalid parameters", "details", e.what()}};
     } catch (const std::exception& e) {
         LOG_ERROR(chrono_util::LogCategory::GENERAL, "Error processing get_balance: {}", e.what());
+        return {{"status", "error"}, {"message", "Internal server error", "details", e.what()}};
+    }
+}
+
+json JsonRpcServer::handle_get_nonce(const json& params) {
+    try {
+        if (!params.contains("address")) {
+            return {{"status", "error"}, {"message", "Missing 'address' parameter"}};
+        }
+        std::string address_str = params["address"].get<std::string>();
+        
+        // Validate address format
+        chrono_address::Address addr(address_str);
+        if (!addr.is_valid()) {
+            return {{"status", "error"}, {"message", "Invalid address format"}};
+        }
+
+        uint64_t nonce = state_.get_nonce(address_str);
+        return {{"status", "success"}, {"address", address_str}, {"nonce", nonce}};
+    } catch (const std::exception& e) {
+        LOG_ERROR(chrono_util::LogCategory::GENERAL, "Error processing get_nonce: {}", e.what());
+        return {{"status", "error"}, {"message", "Internal server error", "details", e.what()}};
+    }
+}
+
+json JsonRpcServer::handle_get_status(const json& params) {
+    (void)params;
+    json result;
+    result["node_id"] = node_app_.status_.node_id;
+    result["p2p_address"] = node_app_.status_.p2p_address;
+    result["rpc_address"] = node_app_.status_.rpc_address;
+    result["current_block_height"] = node_app_.next_block_height_ - 1;
+    result["last_block_hash"] = chrono_util::bytes_to_hex(node_app_.last_block_hash_);
+    result["connected_peers_count"] = node_app_.status_.connected_peers.load();
+    
+    return {{"status", "success"}, {"result", result}};
+}
+
+json JsonRpcServer::handle_get_block(const json& params) {
+    if (!params.contains("height") && !params.contains("hash")) {
+        return {{"status", "error"}, {"message", "Missing 'height' or 'hash' parameter"}};
+    }
+
+    std::optional<chrono_ledger::Block> block;
+    try {
+        if (params.contains("height")) {
+            uint64_t height = params["height"].get<uint64_t>();
+            block = node_app_.getBlockchainStorage()->getBlock(height);
+        } else {
+            std::string hash_str = params["hash"].get<std::string>();
+            chrono_util::Bytes hash = chrono_util::hex_to_bytes(hash_str);
+            block = node_app_.getBlockchainStorage()->getBlock(hash);
+        }
+    } catch (const std::exception& e) {
+        return {{"status", "error"}, {"message", "Invalid parameters", "details", e.what()}};
+    }
+
+    if (block) {
+        return {{"status", "success"}, {"result", block->to_json()}};
+    } else {
+        return {{"status", "error"}, {"message", "Block not found"}};
+    }
+}
+
+json JsonRpcServer::handle_get_transaction(const json& params) {
+    if (!params.contains("hash")) {
+        return {{"status", "error"}, {"message", "Missing 'hash' parameter"}};
+    }
+    
+    std::string hash_str = params["hash"].get<std::string>();
+    chrono_util::Bytes tx_hash;
+    try {
+        tx_hash = chrono_util::hex_to_bytes(hash_str);
+    } catch (const std::exception& e) {
+        return {{"status", "error"}, {"message", "Invalid hash format"}};
+    }
+
+    // 1. Search mempool (NodeApp's mempool, not local one)
+    // Note: We need access to NodeApp's mempool. 
+    // Assuming node_app_ has a public method or friend access.
+    // For now, we can't easily access NodeApp's mempool without adding a getter to NodeApp.
+    // Let's assume we can't find it in mempool for now unless we add that getter.
+    
+    // 2. Search recent blocks
+    uint64_t current_height = node_app_.next_block_height_ - 1;
+    for (uint64_t h = current_height; h > 0 && h > current_height - 100; --h) {
+        auto block = node_app_.getBlockchainStorage()->getBlock(h);
+        if (block) {
+            for (const auto& tx : block->transactions) {
+                if (tx.get_hash() == tx_hash) {
+                    return {{"status", "success"}, {"result", tx.to_json()}};
+                }
+            }
+        }
+    }
+
+    return {{"status", "error"}, {"message", "Transaction not found"}};
+}
+
+json JsonRpcServer::handle_get_candidates(const json& params) {
+    (void)params;
+    try {
+        auto candidates = state_.get_node_registry().get_candidates();
+        json result = json::array();
+        for (const auto& c : candidates) {
+            result.push_back(c.to_json());
+        }
+        return {{"status", "success"}, {"result", result}};
+    } catch (const std::exception& e) {
+        LOG_ERROR(chrono_util::LogCategory::GENERAL, "Error processing get_candidates: {}", e.what());
+        return {{"status", "error"}, {"message", "Internal server error", "details", e.what()}};
+    }
+}
+
+json JsonRpcServer::handle_get_peers(const json& params) {
+    (void)params;
+    try {
+        json peers_json = json::array();
+        
+        // Access NodeApp's connected peers directly (friend class)
+        std::lock_guard<std::mutex> lock(node_app_.peers_mutex_);
+        for (const auto& [id, peer] : node_app_.connected_peers_) {
+            json peer_obj;
+            peer_obj["node_id"] = peer.node_id;
+            peer_obj["address"] = peer.address;
+            peer_obj["last_block_hash"] = chrono_util::bytes_to_hex(peer.last_block_hash);
+            peer_obj["current_block_height"] = peer.current_block_height;
+            peer_obj["score"] = peer.score;
+            
+            // Calculate last seen in seconds ago
+            auto now = std::chrono::steady_clock::now();
+            auto duration = std::chrono::duration_cast<std::chrono::seconds>(now - peer.last_seen_time).count();
+            peer_obj["last_seen_seconds_ago"] = duration;
+            
+            peers_json.push_back(peer_obj);
+        }
+        
+        return {{"status", "success"}, {"result", peers_json}};
+    } catch (const std::exception& e) {
+        LOG_ERROR(chrono_util::LogCategory::GENERAL, "Error processing get_peers: {}", e.what());
+        return {{"status", "error"}, {"message", "Internal server error", "details", e.what()}};
+    }
+}
+
+json JsonRpcServer::handle_get_mempool(const json& params) {
+    (void)params;
+    try {
+        auto mempool = node_app_.get_mempool_const();
+        json result = json::array();
+        for (const auto& tx : mempool) {
+            result.push_back(tx.to_json());
+        }
+        return {{"status", "success"}, {"result", result}};
+    } catch (const std::exception& e) {
+        LOG_ERROR(chrono_util::LogCategory::GENERAL, "Error processing get_mempool: {}", e.what());
         return {{"status", "error"}, {"message", "Internal server error", "details", e.what()}};
     }
 }

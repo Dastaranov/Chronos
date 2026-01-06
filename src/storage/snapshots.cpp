@@ -65,37 +65,90 @@ std::optional<SnapshotData> SnapshotManager::restoreSnapshot(uint64_t height) {
             return std::nullopt;
         }
 
+        auto result = restoreFromBytes(*combined_snapshot);
+        if (result) {
+             LOG_INFO(chrono_util::LogCategory::STORAGE, "Snapshot restored successfully from height {} with {} bytes of state data", height, result->state_bytes.size());
+        }
+        return result;
+
+    } catch (const std::exception& e) {
+        LOG_ERROR(chrono_util::LogCategory::STORAGE, "Error restoring snapshot at height {}: {}", height, e.what());
+        return std::nullopt;
+    }
+}
+
+chrono_util::Bytes SnapshotManager::getSnapshotChunk(uint64_t height, uint64_t chunk_index, uint64_t chunk_size) {
+    try {
+        std::string snapshot_key_str = "snapshot_" + std::to_string(height);
+        chrono_util::Bytes snapshot_key(snapshot_key_str.begin(), snapshot_key_str.end());
+
+        std::optional<chrono_util::Bytes> combined_snapshot = kv_store_->get(snapshot_key);
+        if (!combined_snapshot) {
+            return {};
+        }
+
+        size_t start_pos = chunk_index * chunk_size;
+        if (start_pos >= combined_snapshot->size()) {
+            return {};
+        }
+
+        size_t end_pos = std::min(start_pos + chunk_size, combined_snapshot->size());
+        return chrono_util::Bytes(combined_snapshot->begin() + start_pos, combined_snapshot->begin() + end_pos);
+
+    } catch (const std::exception& e) {
+        LOG_ERROR(chrono_util::LogCategory::STORAGE, "Error getting snapshot chunk at height {}: {}", height, e.what());
+        return {};
+    }
+}
+
+uint64_t SnapshotManager::getSnapshotSize(uint64_t height) {
+    try {
+        std::string snapshot_key_str = "snapshot_" + std::to_string(height);
+        chrono_util::Bytes snapshot_key(snapshot_key_str.begin(), snapshot_key_str.end());
+
+        std::optional<chrono_util::Bytes> combined_snapshot = kv_store_->get(snapshot_key);
+        if (!combined_snapshot) {
+            return 0;
+        }
+        return combined_snapshot->size();
+    } catch (const std::exception& e) {
+        LOG_ERROR(chrono_util::LogCategory::STORAGE, "Error getting snapshot size at height {}: {}", height, e.what());
+        return 0;
+    }
+}
+
+std::optional<SnapshotData> SnapshotManager::restoreFromBytes(const chrono_util::Bytes& combined_snapshot) {
+    try {
         // Find null separator between metadata and state
-        size_t separator_pos = combined_snapshot->size();
-        for (size_t i = 0; i < combined_snapshot->size(); ++i) {
-            if ((*combined_snapshot)[i] == 0) {
+        size_t separator_pos = combined_snapshot.size();
+        for (size_t i = 0; i < combined_snapshot.size(); ++i) {
+            if (combined_snapshot[i] == 0) {
                 separator_pos = i;
                 break;
             }
         }
 
-        if (separator_pos == combined_snapshot->size()) {
-            LOG_ERROR(chrono_util::LogCategory::STORAGE, "Invalid snapshot format at height {}: no separator found", height);
+        if (separator_pos == combined_snapshot.size()) {
+            LOG_ERROR(chrono_util::LogCategory::STORAGE, "Invalid snapshot format: no separator found");
             return std::nullopt;
         }
 
         // Parse metadata JSON
-        std::string metadata_str(combined_snapshot->begin(), combined_snapshot->begin() + separator_pos);
+        std::string metadata_str(combined_snapshot.begin(), combined_snapshot.begin() + separator_pos);
         nlohmann::json metadata = nlohmann::json::parse(metadata_str);
 
         // Extract state bytes
-        chrono_util::Bytes state_bytes(combined_snapshot->begin() + separator_pos + 1, combined_snapshot->end());
+        chrono_util::Bytes state_bytes(combined_snapshot.begin() + separator_pos + 1, combined_snapshot.end());
 
         SnapshotData restored_data;
         restored_data.height = metadata.at("height").get<uint64_t>();
         restored_data.last_block_hash = chrono_util::hex_to_bytes(metadata.at("last_block_hash").get<std::string>());
         restored_data.state_bytes = state_bytes;
 
-        LOG_INFO(chrono_util::LogCategory::STORAGE, "Snapshot restored successfully from height {} with {} bytes of state data", height, state_bytes.size());
         return restored_data;
 
     } catch (const std::exception& e) {
-        LOG_ERROR(chrono_util::LogCategory::STORAGE, "Error restoring snapshot at height {}: {}", height, e.what());
+        LOG_ERROR(chrono_util::LogCategory::STORAGE, "Error restoring snapshot from bytes: {}", e.what());
         return std::nullopt;
     }
 }

@@ -54,6 +54,17 @@ find_package(Protobuf REQUIRED)
 find_package(Threads REQUIRED)
 find_package(OpenSSL REQUIRED)
 
+# LevelDB dependency
+find_package(leveldb)
+if(leveldb_FOUND)
+    set(CHRONOS_USE_LEVELDB ON)
+    add_compile_definitions(CHRONOS_USE_LEVELDB=1)
+    message(STATUS "LevelDB found, enabling LevelDBBlockchainStorage")
+else()
+    set(CHRONOS_USE_LEVELDB OFF)
+    message(WARNING "LevelDB not found, LevelDB storage disabled")
+endif()
+
 include_directories(${Protobuf_INCLUDE_DIRS})
 
 # -------------------------------
@@ -67,6 +78,9 @@ set(CHRONOS_LIB_SRC
     src/p2p/p2p_client.cpp
     src/p2p/p2p_server.cpp
     src/p2p/gossip.cpp
+    src/p2p/fragmentation.cpp
+    src/p2p/peer_store.cpp
+    src/p2p/discovery_manager.cpp
     src/address/address.cpp
     src/address/bech32m.cpp
     src/storage/memory_kv.cpp
@@ -78,36 +92,49 @@ set(CHRONOS_LIB_SRC
     src/crypto/signer.cpp
     src/crypto/signer_hmac.cpp
     src/crypto/key_manager.cpp
+    src/crypto/crypto_provider.cpp
+    src/crypto/kyber_crypto.cpp
+    src/crypto/aes_crypto.cpp
     src/ledger/block.cpp
     src/ledger/state.cpp
     src/ledger/transaction.cpp
+    src/ledger/node_registry.cpp
     src/consensus/pot_aggregator.cpp
     src/consensus/bft.cpp
     src/consensus/external_time_source_manager.cpp
     src/consensus/ntp_client.cpp
+    src/consensus/ChronyBackend.cpp
+    src/consensus/AtomicClockBackend.cpp
+    src/consensus/QuantumClockBackend.cpp
     src/storage/snapshots.cpp
     src/util/bytes.cpp
     src/util/log.cpp
     src/util/console_display.cpp
     src/util/error_types.cpp
     src/util/retry_policy.cpp
-)
-
-# Node-specifieke bronnen
-set(CHRONOS_NODE_SRC
-    src/main.cpp
     src/node/config.cpp
     src/node/node_app.cpp
     src/rpc/jsonrpc.cpp
 )
 
+if(CHRONOS_USE_LEVELDB)
+    list(APPEND CHRONOS_LIB_SRC src/storage/LevelDBBlockchainStorage.cpp)
+endif()
+
+# Node-specifieke bronnen
+set(CHRONOS_NODE_SRC
+    src/main.cpp
+)
+
 set(CHRONOS_PROTO_SRC
     src/proto/p2p_messages.pb.cc
     src/proto/bft_messages.pb.cc
+    src/proto/ledger.pb.cc
 )
 set(CHRONOS_PROTO_HDR
     src/proto/p2p_messages.pb.h
     src/proto/bft_messages.pb.h
+    src/proto/ledger.pb.h
 )
 
 # BLAKE3 C-implementatie
@@ -160,6 +187,17 @@ target_link_libraries(chronos_lib PUBLIC
     -lm
 )
 
+if(leveldb_FOUND)
+    target_link_libraries(chronos_lib PUBLIC leveldb::leveldb)
+    find_library(SNAPPY_LIB snappy)
+    if(SNAPPY_LIB)
+        message(STATUS "Found Snappy: ${SNAPPY_LIB}")
+        target_link_libraries(chronos_lib PUBLIC ${SNAPPY_LIB})
+    else()
+        message(WARNING "Snappy not found, but LevelDB might require it.")
+    endif()
+endif()
+
 # liboqs integratie voor de bibliotheek
 if (CHRONOS_USE_OQS)
     find_path(OQS_INCLUDE_DIR oqs/oqs.h PATHS /home/gert/Dev/oqs_install/include NO_DEFAULT_PATH)
@@ -183,11 +221,23 @@ add_executable(chronos_node
 
 target_link_libraries(chronos_node PUBLIC chronos_lib)
 
+# -------------------------------
+# Genesis Tool
+# -------------------------------
+add_executable(genesis_tool src/tools/genesis_tool.cpp)
+target_link_libraries(genesis_tool PRIVATE chronos_lib)
 
 # -------------------------------
 # Wallet CLI
 # -------------------------------
 add_subdirectory(src/wallet/cli)
+
+# -------------------------------
+# Node CLI (Admin Tool)
+# -------------------------------
+add_executable(node_cli src/tools/node_cli.cpp)
+target_link_libraries(node_cli PRIVATE chronos_lib)
+
 # -------------------------------
 # Tests
 # NEW: Added test_transaction_validation, test_state_serialization, test_thread_safety, test_snapshots
@@ -210,6 +260,8 @@ add_executable(chronos_tests
     tests/test_protobuf_validation.cpp
     tests/test_error_types.cpp
     tests/test_retry_policy.cpp
+    tests/test_key_rotation.cpp
+    tests/test_p2p_encryption.cpp
 )
 
 target_link_libraries(chronos_tests PRIVATE chronos_lib)
@@ -227,5 +279,21 @@ add_test(NAME chronos_tests COMMAND chronos_tests)
 # -------------------------------
 # Install rules
 # -------------------------------
-install(TARGETS chronos_node wallet_cli DESTINATION bin)
+install(TARGETS chronos_node wallet_cli node_cli DESTINATION bin)
 install(FILES ${CHRONOS_PROTO_HDR} DESTINATION include/proto)
+
+
+
+# Full integration test executable
+add_executable(test_full_integration tests/test_full_integration_executable.cpp)
+target_link_libraries(test_full_integration PRIVATE chronos_lib)
+if(CHRONOS_USE_OQS)
+    target_compile_definitions(test_full_integration PUBLIC CHRONOS_USE_OQS=1)
+    target_include_directories(test_full_integration PUBLIC ${OQS_INCLUDE_DIR})
+endif()
+add_executable(test_robust_integration tests/test_robust_integration.cpp)
+target_link_libraries(test_robust_integration PRIVATE chronos_lib)
+if(CHRONOS_USE_OQS)
+    target_compile_definitions(test_robust_integration PUBLIC CHRONOS_USE_OQS=1)
+    target_include_directories(test_robust_integration PUBLIC ${OQS_INCLUDE_DIR})
+endif()

@@ -42,6 +42,7 @@ PROTOBUF_CONSTEXPR Prevote::Prevote(
   , /*decltype(_impl_.signature_)*/nullptr
   , /*decltype(_impl_.height_)*/uint64_t{0u}
   , /*decltype(_impl_.round_)*/0u
+  , /*decltype(_impl_.time_tier_)*/0u
   , /*decltype(_impl_._cached_size_)*/{}} {}
 struct PrevoteDefaultTypeInternal {
   PROTOBUF_CONSTEXPR PrevoteDefaultTypeInternal()
@@ -59,6 +60,7 @@ PROTOBUF_CONSTEXPR Precommit::Precommit(
   , /*decltype(_impl_.signature_)*/nullptr
   , /*decltype(_impl_.height_)*/uint64_t{0u}
   , /*decltype(_impl_.round_)*/0u
+  , /*decltype(_impl_.time_tier_)*/0u
   , /*decltype(_impl_._cached_size_)*/{}} {}
 struct PrecommitDefaultTypeInternal {
   PROTOBUF_CONSTEXPR PrecommitDefaultTypeInternal()
@@ -76,6 +78,7 @@ PROTOBUF_CONSTEXPR NewRound::NewRound(
   , /*decltype(_impl_.signature_)*/nullptr
   , /*decltype(_impl_.height_)*/uint64_t{0u}
   , /*decltype(_impl_.round_)*/0u
+  , /*decltype(_impl_.time_tier_)*/0u
   , /*decltype(_impl_._cached_size_)*/{}} {}
 struct NewRoundDefaultTypeInternal {
   PROTOBUF_CONSTEXPR NewRoundDefaultTypeInternal()
@@ -111,6 +114,7 @@ const uint32_t TableStruct_bft_5fmessages_2eproto::offsets[] PROTOBUF_SECTION_VA
   PROTOBUF_FIELD_OFFSET(::chronos::bft::Prevote, _impl_.block_hash_),
   PROTOBUF_FIELD_OFFSET(::chronos::bft::Prevote, _impl_.validator_id_),
   PROTOBUF_FIELD_OFFSET(::chronos::bft::Prevote, _impl_.signature_),
+  PROTOBUF_FIELD_OFFSET(::chronos::bft::Prevote, _impl_.time_tier_),
   ~0u,  // no _has_bits_
   PROTOBUF_FIELD_OFFSET(::chronos::bft::Precommit, _internal_metadata_),
   ~0u,  // no _extensions_
@@ -122,6 +126,7 @@ const uint32_t TableStruct_bft_5fmessages_2eproto::offsets[] PROTOBUF_SECTION_VA
   PROTOBUF_FIELD_OFFSET(::chronos::bft::Precommit, _impl_.block_hash_),
   PROTOBUF_FIELD_OFFSET(::chronos::bft::Precommit, _impl_.validator_id_),
   PROTOBUF_FIELD_OFFSET(::chronos::bft::Precommit, _impl_.signature_),
+  PROTOBUF_FIELD_OFFSET(::chronos::bft::Precommit, _impl_.time_tier_),
   ~0u,  // no _has_bits_
   PROTOBUF_FIELD_OFFSET(::chronos::bft::NewRound, _internal_metadata_),
   ~0u,  // no _extensions_
@@ -133,12 +138,13 @@ const uint32_t TableStruct_bft_5fmessages_2eproto::offsets[] PROTOBUF_SECTION_VA
   PROTOBUF_FIELD_OFFSET(::chronos::bft::NewRound, _impl_.proposal_block_hash_),
   PROTOBUF_FIELD_OFFSET(::chronos::bft::NewRound, _impl_.validator_id_),
   PROTOBUF_FIELD_OFFSET(::chronos::bft::NewRound, _impl_.signature_),
+  PROTOBUF_FIELD_OFFSET(::chronos::bft::NewRound, _impl_.time_tier_),
 };
 static const ::_pbi::MigrationSchema schemas[] PROTOBUF_SECTION_VARIABLE(protodesc_cold) = {
   { 0, -1, -1, sizeof(::chronos::bft::SignatureProto)},
   { 7, -1, -1, sizeof(::chronos::bft::Prevote)},
-  { 18, -1, -1, sizeof(::chronos::bft::Precommit)},
-  { 29, -1, -1, sizeof(::chronos::bft::NewRound)},
+  { 19, -1, -1, sizeof(::chronos::bft::Precommit)},
+  { 31, -1, -1, sizeof(::chronos::bft::NewRound)},
 };
 
 static const ::_pb::Message* const file_default_instances[] = {
@@ -150,22 +156,23 @@ static const ::_pb::Message* const file_default_instances[] = {
 
 const char descriptor_table_protodef_bft_5fmessages_2eproto[] PROTOBUF_SECTION_VARIABLE(protodesc_cold) =
   "\n\022bft_messages.proto\022\013chronos.bft\"\036\n\016Sig"
-  "natureProto\022\014\n\004data\030\001 \001(\014\"\202\001\n\007Prevote\022\016\n"
+  "natureProto\022\014\n\004data\030\001 \001(\014\"\225\001\n\007Prevote\022\016\n"
   "\006height\030\001 \001(\004\022\r\n\005round\030\002 \001(\r\022\022\n\nblock_ha"
   "sh\030\003 \001(\014\022\024\n\014validator_id\030\004 \001(\t\022.\n\tsignat"
-  "ure\030\005 \001(\0132\033.chronos.bft.SignatureProto\"\204"
-  "\001\n\tPrecommit\022\016\n\006height\030\001 \001(\004\022\r\n\005round\030\002 "
-  "\001(\r\022\022\n\nblock_hash\030\003 \001(\014\022\024\n\014validator_id\030"
-  "\004 \001(\t\022.\n\tsignature\030\005 \001(\0132\033.chronos.bft.S"
-  "ignatureProto\"\214\001\n\010NewRound\022\016\n\006height\030\001 \001"
-  "(\004\022\r\n\005round\030\002 \001(\r\022\033\n\023proposal_block_hash"
-  "\030\003 \001(\014\022\024\n\014validator_id\030\004 \001(\t\022.\n\tsignatur"
-  "e\030\005 \001(\0132\033.chronos.bft.SignatureProtob\006pr"
-  "oto3"
+  "ure\030\005 \001(\0132\033.chronos.bft.SignatureProto\022\021"
+  "\n\ttime_tier\030\006 \001(\r\"\227\001\n\tPrecommit\022\016\n\006heigh"
+  "t\030\001 \001(\004\022\r\n\005round\030\002 \001(\r\022\022\n\nblock_hash\030\003 \001"
+  "(\014\022\024\n\014validator_id\030\004 \001(\t\022.\n\tsignature\030\005 "
+  "\001(\0132\033.chronos.bft.SignatureProto\022\021\n\ttime"
+  "_tier\030\006 \001(\r\"\237\001\n\010NewRound\022\016\n\006height\030\001 \001(\004"
+  "\022\r\n\005round\030\002 \001(\r\022\033\n\023proposal_block_hash\030\003"
+  " \001(\014\022\024\n\014validator_id\030\004 \001(\t\022.\n\tsignature\030"
+  "\005 \001(\0132\033.chronos.bft.SignatureProto\022\021\n\tti"
+  "me_tier\030\006 \001(\rb\006proto3"
   ;
 static ::_pbi::once_flag descriptor_table_bft_5fmessages_2eproto_once;
 const ::_pbi::DescriptorTable descriptor_table_bft_5fmessages_2eproto = {
-    false, false, 484, descriptor_table_protodef_bft_5fmessages_2eproto,
+    false, false, 541, descriptor_table_protodef_bft_5fmessages_2eproto,
     "bft_messages.proto",
     &descriptor_table_bft_5fmessages_2eproto_once, nullptr, 0, 4,
     schemas, file_default_instances, TableStruct_bft_5fmessages_2eproto::offsets,
@@ -405,6 +412,7 @@ Prevote::Prevote(const Prevote& from)
     , decltype(_impl_.signature_){nullptr}
     , decltype(_impl_.height_){}
     , decltype(_impl_.round_){}
+    , decltype(_impl_.time_tier_){}
     , /*decltype(_impl_._cached_size_)*/{}};
 
   _internal_metadata_.MergeFrom<::PROTOBUF_NAMESPACE_ID::UnknownFieldSet>(from._internal_metadata_);
@@ -428,8 +436,8 @@ Prevote::Prevote(const Prevote& from)
     _this->_impl_.signature_ = new ::chronos::bft::SignatureProto(*from._impl_.signature_);
   }
   ::memcpy(&_impl_.height_, &from._impl_.height_,
-    static_cast<size_t>(reinterpret_cast<char*>(&_impl_.round_) -
-    reinterpret_cast<char*>(&_impl_.height_)) + sizeof(_impl_.round_));
+    static_cast<size_t>(reinterpret_cast<char*>(&_impl_.time_tier_) -
+    reinterpret_cast<char*>(&_impl_.height_)) + sizeof(_impl_.time_tier_));
   // @@protoc_insertion_point(copy_constructor:chronos.bft.Prevote)
 }
 
@@ -443,6 +451,7 @@ inline void Prevote::SharedCtor(
     , decltype(_impl_.signature_){nullptr}
     , decltype(_impl_.height_){uint64_t{0u}}
     , decltype(_impl_.round_){0u}
+    , decltype(_impl_.time_tier_){0u}
     , /*decltype(_impl_._cached_size_)*/{}
   };
   _impl_.block_hash_.InitDefault();
@@ -488,8 +497,8 @@ void Prevote::Clear() {
   }
   _impl_.signature_ = nullptr;
   ::memset(&_impl_.height_, 0, static_cast<size_t>(
-      reinterpret_cast<char*>(&_impl_.round_) -
-      reinterpret_cast<char*>(&_impl_.height_)) + sizeof(_impl_.round_));
+      reinterpret_cast<char*>(&_impl_.time_tier_) -
+      reinterpret_cast<char*>(&_impl_.height_)) + sizeof(_impl_.time_tier_));
   _internal_metadata_.Clear<::PROTOBUF_NAMESPACE_ID::UnknownFieldSet>();
 }
 
@@ -538,6 +547,14 @@ const char* Prevote::_InternalParse(const char* ptr, ::_pbi::ParseContext* ctx) 
       case 5:
         if (PROTOBUF_PREDICT_TRUE(static_cast<uint8_t>(tag) == 42)) {
           ptr = ctx->ParseMessage(_internal_mutable_signature(), ptr);
+          CHK_(ptr);
+        } else
+          goto handle_unusual;
+        continue;
+      // uint32 time_tier = 6;
+      case 6:
+        if (PROTOBUF_PREDICT_TRUE(static_cast<uint8_t>(tag) == 48)) {
+          _impl_.time_tier_ = ::PROTOBUF_NAMESPACE_ID::internal::ReadVarint32(&ptr);
           CHK_(ptr);
         } else
           goto handle_unusual;
@@ -606,6 +623,12 @@ uint8_t* Prevote::_InternalSerialize(
         _Internal::signature(this).GetCachedSize(), target, stream);
   }
 
+  // uint32 time_tier = 6;
+  if (this->_internal_time_tier() != 0) {
+    target = stream->EnsureSpace(target);
+    target = ::_pbi::WireFormatLite::WriteUInt32ToArray(6, this->_internal_time_tier(), target);
+  }
+
   if (PROTOBUF_PREDICT_FALSE(_internal_metadata_.have_unknown_fields())) {
     target = ::_pbi::WireFormat::InternalSerializeUnknownFieldsToArray(
         _internal_metadata_.unknown_fields<::PROTOBUF_NAMESPACE_ID::UnknownFieldSet>(::PROTOBUF_NAMESPACE_ID::UnknownFieldSet::default_instance), target, stream);
@@ -653,6 +676,11 @@ size_t Prevote::ByteSizeLong() const {
     total_size += ::_pbi::WireFormatLite::UInt32SizePlusOne(this->_internal_round());
   }
 
+  // uint32 time_tier = 6;
+  if (this->_internal_time_tier() != 0) {
+    total_size += ::_pbi::WireFormatLite::UInt32SizePlusOne(this->_internal_time_tier());
+  }
+
   return MaybeComputeUnknownFieldsSize(total_size, &_impl_._cached_size_);
 }
 
@@ -687,6 +715,9 @@ void Prevote::MergeImpl(::PROTOBUF_NAMESPACE_ID::Message& to_msg, const ::PROTOB
   if (from._internal_round() != 0) {
     _this->_internal_set_round(from._internal_round());
   }
+  if (from._internal_time_tier() != 0) {
+    _this->_internal_set_time_tier(from._internal_time_tier());
+  }
   _this->_internal_metadata_.MergeFrom<::PROTOBUF_NAMESPACE_ID::UnknownFieldSet>(from._internal_metadata_);
 }
 
@@ -715,8 +746,8 @@ void Prevote::InternalSwap(Prevote* other) {
       &other->_impl_.validator_id_, rhs_arena
   );
   ::PROTOBUF_NAMESPACE_ID::internal::memswap<
-      PROTOBUF_FIELD_OFFSET(Prevote, _impl_.round_)
-      + sizeof(Prevote::_impl_.round_)
+      PROTOBUF_FIELD_OFFSET(Prevote, _impl_.time_tier_)
+      + sizeof(Prevote::_impl_.time_tier_)
       - PROTOBUF_FIELD_OFFSET(Prevote, _impl_.signature_)>(
           reinterpret_cast<char*>(&_impl_.signature_),
           reinterpret_cast<char*>(&other->_impl_.signature_));
@@ -754,6 +785,7 @@ Precommit::Precommit(const Precommit& from)
     , decltype(_impl_.signature_){nullptr}
     , decltype(_impl_.height_){}
     , decltype(_impl_.round_){}
+    , decltype(_impl_.time_tier_){}
     , /*decltype(_impl_._cached_size_)*/{}};
 
   _internal_metadata_.MergeFrom<::PROTOBUF_NAMESPACE_ID::UnknownFieldSet>(from._internal_metadata_);
@@ -777,8 +809,8 @@ Precommit::Precommit(const Precommit& from)
     _this->_impl_.signature_ = new ::chronos::bft::SignatureProto(*from._impl_.signature_);
   }
   ::memcpy(&_impl_.height_, &from._impl_.height_,
-    static_cast<size_t>(reinterpret_cast<char*>(&_impl_.round_) -
-    reinterpret_cast<char*>(&_impl_.height_)) + sizeof(_impl_.round_));
+    static_cast<size_t>(reinterpret_cast<char*>(&_impl_.time_tier_) -
+    reinterpret_cast<char*>(&_impl_.height_)) + sizeof(_impl_.time_tier_));
   // @@protoc_insertion_point(copy_constructor:chronos.bft.Precommit)
 }
 
@@ -792,6 +824,7 @@ inline void Precommit::SharedCtor(
     , decltype(_impl_.signature_){nullptr}
     , decltype(_impl_.height_){uint64_t{0u}}
     , decltype(_impl_.round_){0u}
+    , decltype(_impl_.time_tier_){0u}
     , /*decltype(_impl_._cached_size_)*/{}
   };
   _impl_.block_hash_.InitDefault();
@@ -837,8 +870,8 @@ void Precommit::Clear() {
   }
   _impl_.signature_ = nullptr;
   ::memset(&_impl_.height_, 0, static_cast<size_t>(
-      reinterpret_cast<char*>(&_impl_.round_) -
-      reinterpret_cast<char*>(&_impl_.height_)) + sizeof(_impl_.round_));
+      reinterpret_cast<char*>(&_impl_.time_tier_) -
+      reinterpret_cast<char*>(&_impl_.height_)) + sizeof(_impl_.time_tier_));
   _internal_metadata_.Clear<::PROTOBUF_NAMESPACE_ID::UnknownFieldSet>();
 }
 
@@ -887,6 +920,14 @@ const char* Precommit::_InternalParse(const char* ptr, ::_pbi::ParseContext* ctx
       case 5:
         if (PROTOBUF_PREDICT_TRUE(static_cast<uint8_t>(tag) == 42)) {
           ptr = ctx->ParseMessage(_internal_mutable_signature(), ptr);
+          CHK_(ptr);
+        } else
+          goto handle_unusual;
+        continue;
+      // uint32 time_tier = 6;
+      case 6:
+        if (PROTOBUF_PREDICT_TRUE(static_cast<uint8_t>(tag) == 48)) {
+          _impl_.time_tier_ = ::PROTOBUF_NAMESPACE_ID::internal::ReadVarint32(&ptr);
           CHK_(ptr);
         } else
           goto handle_unusual;
@@ -955,6 +996,12 @@ uint8_t* Precommit::_InternalSerialize(
         _Internal::signature(this).GetCachedSize(), target, stream);
   }
 
+  // uint32 time_tier = 6;
+  if (this->_internal_time_tier() != 0) {
+    target = stream->EnsureSpace(target);
+    target = ::_pbi::WireFormatLite::WriteUInt32ToArray(6, this->_internal_time_tier(), target);
+  }
+
   if (PROTOBUF_PREDICT_FALSE(_internal_metadata_.have_unknown_fields())) {
     target = ::_pbi::WireFormat::InternalSerializeUnknownFieldsToArray(
         _internal_metadata_.unknown_fields<::PROTOBUF_NAMESPACE_ID::UnknownFieldSet>(::PROTOBUF_NAMESPACE_ID::UnknownFieldSet::default_instance), target, stream);
@@ -1002,6 +1049,11 @@ size_t Precommit::ByteSizeLong() const {
     total_size += ::_pbi::WireFormatLite::UInt32SizePlusOne(this->_internal_round());
   }
 
+  // uint32 time_tier = 6;
+  if (this->_internal_time_tier() != 0) {
+    total_size += ::_pbi::WireFormatLite::UInt32SizePlusOne(this->_internal_time_tier());
+  }
+
   return MaybeComputeUnknownFieldsSize(total_size, &_impl_._cached_size_);
 }
 
@@ -1036,6 +1088,9 @@ void Precommit::MergeImpl(::PROTOBUF_NAMESPACE_ID::Message& to_msg, const ::PROT
   if (from._internal_round() != 0) {
     _this->_internal_set_round(from._internal_round());
   }
+  if (from._internal_time_tier() != 0) {
+    _this->_internal_set_time_tier(from._internal_time_tier());
+  }
   _this->_internal_metadata_.MergeFrom<::PROTOBUF_NAMESPACE_ID::UnknownFieldSet>(from._internal_metadata_);
 }
 
@@ -1064,8 +1119,8 @@ void Precommit::InternalSwap(Precommit* other) {
       &other->_impl_.validator_id_, rhs_arena
   );
   ::PROTOBUF_NAMESPACE_ID::internal::memswap<
-      PROTOBUF_FIELD_OFFSET(Precommit, _impl_.round_)
-      + sizeof(Precommit::_impl_.round_)
+      PROTOBUF_FIELD_OFFSET(Precommit, _impl_.time_tier_)
+      + sizeof(Precommit::_impl_.time_tier_)
       - PROTOBUF_FIELD_OFFSET(Precommit, _impl_.signature_)>(
           reinterpret_cast<char*>(&_impl_.signature_),
           reinterpret_cast<char*>(&other->_impl_.signature_));
@@ -1103,6 +1158,7 @@ NewRound::NewRound(const NewRound& from)
     , decltype(_impl_.signature_){nullptr}
     , decltype(_impl_.height_){}
     , decltype(_impl_.round_){}
+    , decltype(_impl_.time_tier_){}
     , /*decltype(_impl_._cached_size_)*/{}};
 
   _internal_metadata_.MergeFrom<::PROTOBUF_NAMESPACE_ID::UnknownFieldSet>(from._internal_metadata_);
@@ -1126,8 +1182,8 @@ NewRound::NewRound(const NewRound& from)
     _this->_impl_.signature_ = new ::chronos::bft::SignatureProto(*from._impl_.signature_);
   }
   ::memcpy(&_impl_.height_, &from._impl_.height_,
-    static_cast<size_t>(reinterpret_cast<char*>(&_impl_.round_) -
-    reinterpret_cast<char*>(&_impl_.height_)) + sizeof(_impl_.round_));
+    static_cast<size_t>(reinterpret_cast<char*>(&_impl_.time_tier_) -
+    reinterpret_cast<char*>(&_impl_.height_)) + sizeof(_impl_.time_tier_));
   // @@protoc_insertion_point(copy_constructor:chronos.bft.NewRound)
 }
 
@@ -1141,6 +1197,7 @@ inline void NewRound::SharedCtor(
     , decltype(_impl_.signature_){nullptr}
     , decltype(_impl_.height_){uint64_t{0u}}
     , decltype(_impl_.round_){0u}
+    , decltype(_impl_.time_tier_){0u}
     , /*decltype(_impl_._cached_size_)*/{}
   };
   _impl_.proposal_block_hash_.InitDefault();
@@ -1186,8 +1243,8 @@ void NewRound::Clear() {
   }
   _impl_.signature_ = nullptr;
   ::memset(&_impl_.height_, 0, static_cast<size_t>(
-      reinterpret_cast<char*>(&_impl_.round_) -
-      reinterpret_cast<char*>(&_impl_.height_)) + sizeof(_impl_.round_));
+      reinterpret_cast<char*>(&_impl_.time_tier_) -
+      reinterpret_cast<char*>(&_impl_.height_)) + sizeof(_impl_.time_tier_));
   _internal_metadata_.Clear<::PROTOBUF_NAMESPACE_ID::UnknownFieldSet>();
 }
 
@@ -1236,6 +1293,14 @@ const char* NewRound::_InternalParse(const char* ptr, ::_pbi::ParseContext* ctx)
       case 5:
         if (PROTOBUF_PREDICT_TRUE(static_cast<uint8_t>(tag) == 42)) {
           ptr = ctx->ParseMessage(_internal_mutable_signature(), ptr);
+          CHK_(ptr);
+        } else
+          goto handle_unusual;
+        continue;
+      // uint32 time_tier = 6;
+      case 6:
+        if (PROTOBUF_PREDICT_TRUE(static_cast<uint8_t>(tag) == 48)) {
+          _impl_.time_tier_ = ::PROTOBUF_NAMESPACE_ID::internal::ReadVarint32(&ptr);
           CHK_(ptr);
         } else
           goto handle_unusual;
@@ -1304,6 +1369,12 @@ uint8_t* NewRound::_InternalSerialize(
         _Internal::signature(this).GetCachedSize(), target, stream);
   }
 
+  // uint32 time_tier = 6;
+  if (this->_internal_time_tier() != 0) {
+    target = stream->EnsureSpace(target);
+    target = ::_pbi::WireFormatLite::WriteUInt32ToArray(6, this->_internal_time_tier(), target);
+  }
+
   if (PROTOBUF_PREDICT_FALSE(_internal_metadata_.have_unknown_fields())) {
     target = ::_pbi::WireFormat::InternalSerializeUnknownFieldsToArray(
         _internal_metadata_.unknown_fields<::PROTOBUF_NAMESPACE_ID::UnknownFieldSet>(::PROTOBUF_NAMESPACE_ID::UnknownFieldSet::default_instance), target, stream);
@@ -1351,6 +1422,11 @@ size_t NewRound::ByteSizeLong() const {
     total_size += ::_pbi::WireFormatLite::UInt32SizePlusOne(this->_internal_round());
   }
 
+  // uint32 time_tier = 6;
+  if (this->_internal_time_tier() != 0) {
+    total_size += ::_pbi::WireFormatLite::UInt32SizePlusOne(this->_internal_time_tier());
+  }
+
   return MaybeComputeUnknownFieldsSize(total_size, &_impl_._cached_size_);
 }
 
@@ -1385,6 +1461,9 @@ void NewRound::MergeImpl(::PROTOBUF_NAMESPACE_ID::Message& to_msg, const ::PROTO
   if (from._internal_round() != 0) {
     _this->_internal_set_round(from._internal_round());
   }
+  if (from._internal_time_tier() != 0) {
+    _this->_internal_set_time_tier(from._internal_time_tier());
+  }
   _this->_internal_metadata_.MergeFrom<::PROTOBUF_NAMESPACE_ID::UnknownFieldSet>(from._internal_metadata_);
 }
 
@@ -1413,8 +1492,8 @@ void NewRound::InternalSwap(NewRound* other) {
       &other->_impl_.validator_id_, rhs_arena
   );
   ::PROTOBUF_NAMESPACE_ID::internal::memswap<
-      PROTOBUF_FIELD_OFFSET(NewRound, _impl_.round_)
-      + sizeof(NewRound::_impl_.round_)
+      PROTOBUF_FIELD_OFFSET(NewRound, _impl_.time_tier_)
+      + sizeof(NewRound::_impl_.time_tier_)
       - PROTOBUF_FIELD_OFFSET(NewRound, _impl_.signature_)>(
           reinterpret_cast<char*>(&_impl_.signature_),
           reinterpret_cast<char*>(&other->_impl_.signature_));

@@ -4,7 +4,7 @@
 cmake_minimum_required(VERSION 3.18)
 
 # Define the executable
-add_executable(wallet_cli main.cpp)
+add_executable(wallet_cli main.cpp node_connector.cpp)
 
 # Include directories are inherited from the chronos_lib target
 # so we don't need to specify them here again.

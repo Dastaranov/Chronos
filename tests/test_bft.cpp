@@ -37,7 +37,7 @@ TEST_CASE(BlockConstructorWithConsensusTime, "Block Constructor with Consensus T
     uint64_t consensus_time = 1234567890;
     std::vector<chrono_ledger::Transaction> txs; // Empty for simplicity
 
-    chrono_ledger::Block block(prev_hash, height, consensus_time, txs);
+    chrono_ledger::Block block(prev_hash, height, consensus_time, 0, 5, 0, txs); // Tier 5, Score 0 for test
 
     REQUIRE((block.prev_block_hash == prev_hash), "Block prev_block_hash should match");
     REQUIRE((block.height == height), "Block height should match");
@@ -51,7 +51,7 @@ TEST_CASE(BlockSerializationDeserializationWithConsensusTime, "Block Serializati
     uint64_t consensus_time = 987654321;
     std::vector<chrono_ledger::Transaction> txs; // Empty for simplicity
 
-    chrono_ledger::Block original_block(prev_hash, height, consensus_time, txs);
+    chrono_ledger::Block original_block(prev_hash, height, consensus_time, 0, 5, 0, txs); // Tier 5, Score 0 for test
     
     chrono_util::Bytes serialized_data = original_block.serialize();
     chrono_ledger::Block deserialized_block = chrono_ledger::Block::deserialize(serialized_data);
@@ -69,7 +69,7 @@ TEST_CASE(BlockJSONSerializationDeserializationWithConsensusTime, "Block JSON Se
     uint64_t consensus_time = 1122334455;
     std::vector<chrono_ledger::Transaction> txs; // Empty for simplicity
 
-    chrono_ledger::Block original_block(prev_hash, height, consensus_time, txs);
+    chrono_ledger::Block original_block(prev_hash, height, consensus_time, 0, 5, 0, txs); // Tier 5, Score 0 for test
     
     nlohmann::json block_json = original_block.to_json();
     chrono_ledger::Block deserialized_block;

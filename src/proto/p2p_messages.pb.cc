@@ -25,9 +25,13 @@ PROTOBUF_CONSTEXPR HandshakeMessage::HandshakeMessage(
     ::_pbi::ConstantInitialized): _impl_{
     /*decltype(_impl_.node_id_)*/{&::_pbi::fixed_address_empty_string, ::_pbi::ConstantInitialized{}}
   , /*decltype(_impl_.last_block_hash_)*/{&::_pbi::fixed_address_empty_string, ::_pbi::ConstantInitialized{}}
+  , /*decltype(_impl_.genesis_hash_)*/{&::_pbi::fixed_address_empty_string, ::_pbi::ConstantInitialized{}}
   , /*decltype(_impl_.protocol_version_)*/0
   , /*decltype(_impl_.port_)*/0
   , /*decltype(_impl_.current_block_height_)*/uint64_t{0u}
+  , /*decltype(_impl_.max_total_supply_)*/uint64_t{0u}
+  , /*decltype(_impl_.time_quality_score_)*/0
+  , /*decltype(_impl_.time_tier_)*/0u
   , /*decltype(_impl_._cached_size_)*/{}} {}
 struct HandshakeMessageDefaultTypeInternal {
   PROTOBUF_CONSTEXPR HandshakeMessageDefaultTypeInternal()
@@ -91,19 +95,48 @@ struct TransactionMessageDefaultTypeInternal {
   };
 };
 PROTOBUF_ATTRIBUTE_NO_DESTROY PROTOBUF_CONSTINIT PROTOBUF_ATTRIBUTE_INIT_PRIORITY1 TransactionMessageDefaultTypeInternal _TransactionMessage_default_instance_;
-PROTOBUF_CONSTEXPR PeerListMessage::PeerListMessage(
+PROTOBUF_CONSTEXPR GetPeersRequest::GetPeersRequest(
+    ::_pbi::ConstantInitialized): _impl_{
+    /*decltype(_impl_.max_peers_)*/0u
+  , /*decltype(_impl_._cached_size_)*/{}} {}
+struct GetPeersRequestDefaultTypeInternal {
+  PROTOBUF_CONSTEXPR GetPeersRequestDefaultTypeInternal()
+      : _instance(::_pbi::ConstantInitialized{}) {}
+  ~GetPeersRequestDefaultTypeInternal() {}
+  union {
+    GetPeersRequest _instance;
+  };
+};
+PROTOBUF_ATTRIBUTE_NO_DESTROY PROTOBUF_CONSTINIT PROTOBUF_ATTRIBUTE_INIT_PRIORITY1 GetPeersRequestDefaultTypeInternal _GetPeersRequest_default_instance_;
+PROTOBUF_CONSTEXPR PeerAddress::PeerAddress(
+    ::_pbi::ConstantInitialized): _impl_{
+    /*decltype(_impl_.node_id_)*/{&::_pbi::fixed_address_empty_string, ::_pbi::ConstantInitialized{}}
+  , /*decltype(_impl_.address_)*/{&::_pbi::fixed_address_empty_string, ::_pbi::ConstantInitialized{}}
+  , /*decltype(_impl_.last_seen_)*/uint64_t{0u}
+  , /*decltype(_impl_.is_validator_)*/false
+  , /*decltype(_impl_._cached_size_)*/{}} {}
+struct PeerAddressDefaultTypeInternal {
+  PROTOBUF_CONSTEXPR PeerAddressDefaultTypeInternal()
+      : _instance(::_pbi::ConstantInitialized{}) {}
+  ~PeerAddressDefaultTypeInternal() {}
+  union {
+    PeerAddress _instance;
+  };
+};
+PROTOBUF_ATTRIBUTE_NO_DESTROY PROTOBUF_CONSTINIT PROTOBUF_ATTRIBUTE_INIT_PRIORITY1 PeerAddressDefaultTypeInternal _PeerAddress_default_instance_;
+PROTOBUF_CONSTEXPR GetPeersResponse::GetPeersResponse(
     ::_pbi::ConstantInitialized): _impl_{
     /*decltype(_impl_.peers_)*/{}
   , /*decltype(_impl_._cached_size_)*/{}} {}
-struct PeerListMessageDefaultTypeInternal {
-  PROTOBUF_CONSTEXPR PeerListMessageDefaultTypeInternal()
+struct GetPeersResponseDefaultTypeInternal {
+  PROTOBUF_CONSTEXPR GetPeersResponseDefaultTypeInternal()
       : _instance(::_pbi::ConstantInitialized{}) {}
-  ~PeerListMessageDefaultTypeInternal() {}
+  ~GetPeersResponseDefaultTypeInternal() {}
   union {
-    PeerListMessage _instance;
+    GetPeersResponse _instance;
   };
 };
-PROTOBUF_ATTRIBUTE_NO_DESTROY PROTOBUF_CONSTINIT PROTOBUF_ATTRIBUTE_INIT_PRIORITY1 PeerListMessageDefaultTypeInternal _PeerListMessage_default_instance_;
+PROTOBUF_ATTRIBUTE_NO_DESTROY PROTOBUF_CONSTINIT PROTOBUF_ATTRIBUTE_INIT_PRIORITY1 GetPeersResponseDefaultTypeInternal _GetPeersResponse_default_instance_;
 PROTOBUF_CONSTEXPR P2PMessage::P2PMessage(
     ::_pbi::ConstantInitialized): _impl_{
     /*decltype(_impl_.payload_)*/{}
@@ -118,6 +151,23 @@ struct P2PMessageDefaultTypeInternal {
   };
 };
 PROTOBUF_ATTRIBUTE_NO_DESTROY PROTOBUF_CONSTINIT PROTOBUF_ATTRIBUTE_INIT_PRIORITY1 P2PMessageDefaultTypeInternal _P2PMessage_default_instance_;
+PROTOBUF_CONSTEXPR MessageFragment::MessageFragment(
+    ::_pbi::ConstantInitialized): _impl_{
+    /*decltype(_impl_.message_id_)*/{&::_pbi::fixed_address_empty_string, ::_pbi::ConstantInitialized{}}
+  , /*decltype(_impl_.data_)*/{&::_pbi::fixed_address_empty_string, ::_pbi::ConstantInitialized{}}
+  , /*decltype(_impl_.fragment_index_)*/0u
+  , /*decltype(_impl_.total_fragments_)*/0u
+  , /*decltype(_impl_.original_type_)*/0u
+  , /*decltype(_impl_._cached_size_)*/{}} {}
+struct MessageFragmentDefaultTypeInternal {
+  PROTOBUF_CONSTEXPR MessageFragmentDefaultTypeInternal()
+      : _instance(::_pbi::ConstantInitialized{}) {}
+  ~MessageFragmentDefaultTypeInternal() {}
+  union {
+    MessageFragment _instance;
+  };
+};
+PROTOBUF_ATTRIBUTE_NO_DESTROY PROTOBUF_CONSTINIT PROTOBUF_ATTRIBUTE_INIT_PRIORITY1 MessageFragmentDefaultTypeInternal _MessageFragment_default_instance_;
 PROTOBUF_CONSTEXPR GetSnapshotsMessage::GetSnapshotsMessage(
     ::_pbi::ConstantInitialized): _impl_{
     /*decltype(_impl_.min_height_)*/uint64_t{0u}
@@ -191,7 +241,7 @@ struct SnapshotChunkMessageDefaultTypeInternal {
 };
 PROTOBUF_ATTRIBUTE_NO_DESTROY PROTOBUF_CONSTINIT PROTOBUF_ATTRIBUTE_INIT_PRIORITY1 SnapshotChunkMessageDefaultTypeInternal _SnapshotChunkMessage_default_instance_;
 }  // namespace chrono_p2p
-static ::_pb::Metadata file_level_metadata_p2p_5fmessages_2eproto[12];
+static ::_pb::Metadata file_level_metadata_p2p_5fmessages_2eproto[15];
 static constexpr ::_pb::EnumDescriptor const** file_level_enum_descriptors_p2p_5fmessages_2eproto = nullptr;
 static constexpr ::_pb::ServiceDescriptor const** file_level_service_descriptors_p2p_5fmessages_2eproto = nullptr;
 
@@ -207,6 +257,10 @@ const uint32_t TableStruct_p2p_5fmessages_2eproto::offsets[] PROTOBUF_SECTION_VA
   PROTOBUF_FIELD_OFFSET(::chrono_p2p::HandshakeMessage, _impl_.port_),
   PROTOBUF_FIELD_OFFSET(::chrono_p2p::HandshakeMessage, _impl_.last_block_hash_),
   PROTOBUF_FIELD_OFFSET(::chrono_p2p::HandshakeMessage, _impl_.current_block_height_),
+  PROTOBUF_FIELD_OFFSET(::chrono_p2p::HandshakeMessage, _impl_.genesis_hash_),
+  PROTOBUF_FIELD_OFFSET(::chrono_p2p::HandshakeMessage, _impl_.max_total_supply_),
+  PROTOBUF_FIELD_OFFSET(::chrono_p2p::HandshakeMessage, _impl_.time_tier_),
+  PROTOBUF_FIELD_OFFSET(::chrono_p2p::HandshakeMessage, _impl_.time_quality_score_),
   ~0u,  // no _has_bits_
   PROTOBUF_FIELD_OFFSET(::chrono_p2p::GetBlocksMessage, _internal_metadata_),
   ~0u,  // no _extensions_
@@ -237,12 +291,29 @@ const uint32_t TableStruct_p2p_5fmessages_2eproto::offsets[] PROTOBUF_SECTION_VA
   ~0u,  // no _inlined_string_donated_
   PROTOBUF_FIELD_OFFSET(::chrono_p2p::TransactionMessage, _impl_.transaction_data_),
   ~0u,  // no _has_bits_
-  PROTOBUF_FIELD_OFFSET(::chrono_p2p::PeerListMessage, _internal_metadata_),
+  PROTOBUF_FIELD_OFFSET(::chrono_p2p::GetPeersRequest, _internal_metadata_),
   ~0u,  // no _extensions_
   ~0u,  // no _oneof_case_
   ~0u,  // no _weak_field_map_
   ~0u,  // no _inlined_string_donated_
-  PROTOBUF_FIELD_OFFSET(::chrono_p2p::PeerListMessage, _impl_.peers_),
+  PROTOBUF_FIELD_OFFSET(::chrono_p2p::GetPeersRequest, _impl_.max_peers_),
+  ~0u,  // no _has_bits_
+  PROTOBUF_FIELD_OFFSET(::chrono_p2p::PeerAddress, _internal_metadata_),
+  ~0u,  // no _extensions_
+  ~0u,  // no _oneof_case_
+  ~0u,  // no _weak_field_map_
+  ~0u,  // no _inlined_string_donated_
+  PROTOBUF_FIELD_OFFSET(::chrono_p2p::PeerAddress, _impl_.node_id_),
+  PROTOBUF_FIELD_OFFSET(::chrono_p2p::PeerAddress, _impl_.address_),
+  PROTOBUF_FIELD_OFFSET(::chrono_p2p::PeerAddress, _impl_.last_seen_),
+  PROTOBUF_FIELD_OFFSET(::chrono_p2p::PeerAddress, _impl_.is_validator_),
+  ~0u,  // no _has_bits_
+  PROTOBUF_FIELD_OFFSET(::chrono_p2p::GetPeersResponse, _internal_metadata_),
+  ~0u,  // no _extensions_
+  ~0u,  // no _oneof_case_
+  ~0u,  // no _weak_field_map_
+  ~0u,  // no _inlined_string_donated_
+  PROTOBUF_FIELD_OFFSET(::chrono_p2p::GetPeersResponse, _impl_.peers_),
   ~0u,  // no _has_bits_
   PROTOBUF_FIELD_OFFSET(::chrono_p2p::P2PMessage, _internal_metadata_),
   ~0u,  // no _extensions_
@@ -262,7 +333,20 @@ const uint32_t TableStruct_p2p_5fmessages_2eproto::offsets[] PROTOBUF_SECTION_VA
   ::_pbi::kInvalidFieldOffsetTag,
   ::_pbi::kInvalidFieldOffsetTag,
   ::_pbi::kInvalidFieldOffsetTag,
+  ::_pbi::kInvalidFieldOffsetTag,
+  ::_pbi::kInvalidFieldOffsetTag,
   PROTOBUF_FIELD_OFFSET(::chrono_p2p::P2PMessage, _impl_.payload_),
+  ~0u,  // no _has_bits_
+  PROTOBUF_FIELD_OFFSET(::chrono_p2p::MessageFragment, _internal_metadata_),
+  ~0u,  // no _extensions_
+  ~0u,  // no _oneof_case_
+  ~0u,  // no _weak_field_map_
+  ~0u,  // no _inlined_string_donated_
+  PROTOBUF_FIELD_OFFSET(::chrono_p2p::MessageFragment, _impl_.message_id_),
+  PROTOBUF_FIELD_OFFSET(::chrono_p2p::MessageFragment, _impl_.fragment_index_),
+  PROTOBUF_FIELD_OFFSET(::chrono_p2p::MessageFragment, _impl_.total_fragments_),
+  PROTOBUF_FIELD_OFFSET(::chrono_p2p::MessageFragment, _impl_.data_),
+  PROTOBUF_FIELD_OFFSET(::chrono_p2p::MessageFragment, _impl_.original_type_),
   ~0u,  // no _has_bits_
   PROTOBUF_FIELD_OFFSET(::chrono_p2p::GetSnapshotsMessage, _internal_metadata_),
   ~0u,  // no _extensions_
@@ -308,17 +392,20 @@ const uint32_t TableStruct_p2p_5fmessages_2eproto::offsets[] PROTOBUF_SECTION_VA
 };
 static const ::_pbi::MigrationSchema schemas[] PROTOBUF_SECTION_VARIABLE(protodesc_cold) = {
   { 0, -1, -1, sizeof(::chrono_p2p::HandshakeMessage)},
-  { 11, -1, -1, sizeof(::chrono_p2p::GetBlocksMessage)},
-  { 19, -1, -1, sizeof(::chrono_p2p::BlockMessage)},
-  { 26, -1, -1, sizeof(::chrono_p2p::GetTransactionsMessage)},
-  { 33, -1, -1, sizeof(::chrono_p2p::TransactionMessage)},
-  { 40, -1, -1, sizeof(::chrono_p2p::PeerListMessage)},
-  { 47, -1, -1, sizeof(::chrono_p2p::P2PMessage)},
-  { 67, -1, -1, sizeof(::chrono_p2p::GetSnapshotsMessage)},
-  { 75, -1, -1, sizeof(::chrono_p2p::SnapshotMetadata)},
-  { 83, -1, -1, sizeof(::chrono_p2p::SnapshotsAvailableMessage)},
-  { 90, -1, -1, sizeof(::chrono_p2p::GetSnapshotChunkMessage)},
-  { 99, -1, -1, sizeof(::chrono_p2p::SnapshotChunkMessage)},
+  { 15, -1, -1, sizeof(::chrono_p2p::GetBlocksMessage)},
+  { 23, -1, -1, sizeof(::chrono_p2p::BlockMessage)},
+  { 30, -1, -1, sizeof(::chrono_p2p::GetTransactionsMessage)},
+  { 37, -1, -1, sizeof(::chrono_p2p::TransactionMessage)},
+  { 44, -1, -1, sizeof(::chrono_p2p::GetPeersRequest)},
+  { 51, -1, -1, sizeof(::chrono_p2p::PeerAddress)},
+  { 61, -1, -1, sizeof(::chrono_p2p::GetPeersResponse)},
+  { 68, -1, -1, sizeof(::chrono_p2p::P2PMessage)},
+  { 90, -1, -1, sizeof(::chrono_p2p::MessageFragment)},
+  { 101, -1, -1, sizeof(::chrono_p2p::GetSnapshotsMessage)},
+  { 109, -1, -1, sizeof(::chrono_p2p::SnapshotMetadata)},
+  { 117, -1, -1, sizeof(::chrono_p2p::SnapshotsAvailableMessage)},
+  { 124, -1, -1, sizeof(::chrono_p2p::GetSnapshotChunkMessage)},
+  { 133, -1, -1, sizeof(::chrono_p2p::SnapshotChunkMessage)},
 };
 
 static const ::_pb::Message* const file_default_instances[] = {
@@ -327,8 +414,11 @@ static const ::_pb::Message* const file_default_instances[] = {
   &::chrono_p2p::_BlockMessage_default_instance_._instance,
   &::chrono_p2p::_GetTransactionsMessage_default_instance_._instance,
   &::chrono_p2p::_TransactionMessage_default_instance_._instance,
-  &::chrono_p2p::_PeerListMessage_default_instance_._instance,
+  &::chrono_p2p::_GetPeersRequest_default_instance_._instance,
+  &::chrono_p2p::_PeerAddress_default_instance_._instance,
+  &::chrono_p2p::_GetPeersResponse_default_instance_._instance,
   &::chrono_p2p::_P2PMessage_default_instance_._instance,
+  &::chrono_p2p::_MessageFragment_default_instance_._instance,
   &::chrono_p2p::_GetSnapshotsMessage_default_instance_._instance,
   &::chrono_p2p::_SnapshotMetadata_default_instance_._instance,
   &::chrono_p2p::_SnapshotsAvailableMessage_default_instance_._instance,
@@ -338,54 +428,66 @@ static const ::_pb::Message* const file_default_instances[] = {
 
 const char descriptor_table_protodef_p2p_5fmessages_2eproto[] PROTOBUF_SECTION_VARIABLE(protodesc_cold) =
   "\n\022p2p_messages.proto\022\nchrono_p2p\032\022bft_me"
-  "ssages.proto\"\202\001\n\020HandshakeMessage\022\017\n\007nod"
+  "ssages.proto\"\341\001\n\020HandshakeMessage\022\017\n\007nod"
   "e_id\030\001 \001(\t\022\030\n\020protocol_version\030\002 \001(\005\022\014\n\004"
   "port\030\003 \001(\005\022\027\n\017last_block_hash\030\004 \001(\014\022\034\n\024c"
-  "urrent_block_height\030\005 \001(\004\":\n\020GetBlocksMe"
-  "ssage\022\027\n\017from_block_hash\030\001 \001(\014\022\r\n\005limit\030"
-  "\002 \001(\005\"\"\n\014BlockMessage\022\022\n\nblock_data\030\001 \001("
-  "\014\"1\n\026GetTransactionsMessage\022\027\n\017transacti"
-  "on_ids\030\001 \003(\t\".\n\022TransactionMessage\022\030\n\020tr"
-  "ansaction_data\030\001 \001(\014\" \n\017PeerListMessage\022"
-  "\r\n\005peers\030\001 \003(\t\"\323\005\n\nP2PMessage\0221\n\thandsha"
-  "ke\030\001 \001(\0132\034.chrono_p2p.HandshakeMessageH\000"
-  "\0222\n\nget_blocks\030\002 \001(\0132\034.chrono_p2p.GetBlo"
-  "cksMessageH\000\022)\n\005block\030\003 \001(\0132\030.chrono_p2p"
-  ".BlockMessageH\000\022>\n\020get_transactions\030\004 \001("
-  "\0132\".chrono_p2p.GetTransactionsMessageH\000\022"
-  "5\n\013transaction\030\005 \001(\0132\036.chrono_p2p.Transa"
-  "ctionMessageH\000\0220\n\tpeer_list\030\006 \001(\0132\033.chro"
-  "no_p2p.PeerListMessageH\000\022\'\n\007prevote\030\007 \001("
-  "\0132\024.chronos.bft.PrevoteH\000\022+\n\tprecommit\030\010"
-  " \001(\0132\026.chronos.bft.PrecommitH\000\022*\n\tnew_ro"
-  "und\030\t \001(\0132\025.chronos.bft.NewRoundH\000\0228\n\rge"
-  "t_snapshots\030\n \001(\0132\037.chrono_p2p.GetSnapsh"
-  "otsMessageH\000\022D\n\023snapshots_available\030\013 \001("
-  "\0132%.chrono_p2p.SnapshotsAvailableMessage"
-  "H\000\022A\n\022get_snapshot_chunk\030\014 \001(\0132#.chrono_"
-  "p2p.GetSnapshotChunkMessageH\000\022:\n\016snapsho"
-  "t_chunk\030\r \001(\0132 .chrono_p2p.SnapshotChunk"
-  "MessageH\000B\t\n\007payload\"=\n\023GetSnapshotsMess"
-  "age\022\022\n\nmin_height\030\001 \001(\004\022\022\n\nmax_height\030\002 "
-  "\001(\004\";\n\020SnapshotMetadata\022\016\n\006height\030\001 \001(\004\022"
-  "\027\n\017last_block_hash\030\002 \001(\014\"V\n\031SnapshotsAva"
-  "ilableMessage\0229\n\023available_snapshots\030\001 \003"
-  "(\0132\034.chrono_p2p.SnapshotMetadata\"[\n\027GetS"
-  "napshotChunkMessage\022\027\n\017snapshot_height\030\001"
-  " \001(\004\022\023\n\013chunk_index\030\002 \001(\004\022\022\n\nchunk_size\030"
-  "\003 \001(\004\"o\n\024SnapshotChunkMessage\022\027\n\017snapsho"
-  "t_height\030\001 \001(\004\022\023\n\013chunk_index\030\002 \001(\004\022\022\n\nc"
-  "hunk_data\030\003 \001(\014\022\025\n\ris_last_chunk\030\004 \001(\010b\006"
-  "proto3"
+  "urrent_block_height\030\005 \001(\004\022\024\n\014genesis_has"
+  "h\030\006 \001(\t\022\030\n\020max_total_supply\030\007 \001(\004\022\021\n\ttim"
+  "e_tier\030\010 \001(\r\022\032\n\022time_quality_score\030\t \001(\001"
+  "\":\n\020GetBlocksMessage\022\027\n\017from_block_hash\030"
+  "\001 \001(\014\022\r\n\005limit\030\002 \001(\005\"\"\n\014BlockMessage\022\022\n\n"
+  "block_data\030\001 \001(\014\"1\n\026GetTransactionsMessa"
+  "ge\022\027\n\017transaction_ids\030\001 \003(\t\".\n\022Transacti"
+  "onMessage\022\030\n\020transaction_data\030\001 \001(\014\"$\n\017G"
+  "etPeersRequest\022\021\n\tmax_peers\030\001 \001(\r\"X\n\013Pee"
+  "rAddress\022\017\n\007node_id\030\001 \001(\t\022\017\n\007address\030\002 \001"
+  "(\t\022\021\n\tlast_seen\030\003 \001(\004\022\024\n\014is_validator\030\004 "
+  "\001(\010\":\n\020GetPeersResponse\022&\n\005peers\030\001 \003(\0132\027"
+  ".chrono_p2p.PeerAddress\"\310\006\n\nP2PMessage\0221"
+  "\n\thandshake\030\001 \001(\0132\034.chrono_p2p.Handshake"
+  "MessageH\000\0222\n\nget_blocks\030\002 \001(\0132\034.chrono_p"
+  "2p.GetBlocksMessageH\000\022)\n\005block\030\003 \001(\0132\030.c"
+  "hrono_p2p.BlockMessageH\000\022>\n\020get_transact"
+  "ions\030\004 \001(\0132\".chrono_p2p.GetTransactionsM"
+  "essageH\000\0225\n\013transaction\030\005 \001(\0132\036.chrono_p"
+  "2p.TransactionMessageH\000\022\'\n\007prevote\030\007 \001(\013"
+  "2\024.chronos.bft.PrevoteH\000\022+\n\tprecommit\030\010 "
+  "\001(\0132\026.chronos.bft.PrecommitH\000\022*\n\tnew_rou"
+  "nd\030\t \001(\0132\025.chronos.bft.NewRoundH\000\0228\n\021get"
+  "_peers_request\030\n \001(\0132\033.chrono_p2p.GetPee"
+  "rsRequestH\000\022:\n\022get_peers_response\030\013 \001(\0132"
+  "\034.chrono_p2p.GetPeersResponseH\000\0228\n\rget_s"
+  "napshots\030\014 \001(\0132\037.chrono_p2p.GetSnapshots"
+  "MessageH\000\022D\n\023snapshots_available\030\r \001(\0132%"
+  ".chrono_p2p.SnapshotsAvailableMessageH\000\022"
+  "A\n\022get_snapshot_chunk\030\016 \001(\0132#.chrono_p2p"
+  ".GetSnapshotChunkMessageH\000\022:\n\016snapshot_c"
+  "hunk\030\017 \001(\0132 .chrono_p2p.SnapshotChunkMes"
+  "sageH\000\022/\n\010fragment\030\020 \001(\0132\033.chrono_p2p.Me"
+  "ssageFragmentH\000B\t\n\007payload\"{\n\017MessageFra"
+  "gment\022\022\n\nmessage_id\030\001 \001(\t\022\026\n\016fragment_in"
+  "dex\030\002 \001(\r\022\027\n\017total_fragments\030\003 \001(\r\022\014\n\004da"
+  "ta\030\004 \001(\014\022\025\n\roriginal_type\030\005 \001(\r\"=\n\023GetSn"
+  "apshotsMessage\022\022\n\nmin_height\030\001 \001(\004\022\022\n\nma"
+  "x_height\030\002 \001(\004\";\n\020SnapshotMetadata\022\016\n\006he"
+  "ight\030\001 \001(\004\022\027\n\017last_block_hash\030\002 \001(\014\"V\n\031S"
+  "napshotsAvailableMessage\0229\n\023available_sn"
+  "apshots\030\001 \003(\0132\034.chrono_p2p.SnapshotMetad"
+  "ata\"[\n\027GetSnapshotChunkMessage\022\027\n\017snapsh"
+  "ot_height\030\001 \001(\004\022\023\n\013chunk_index\030\002 \001(\004\022\022\n\n"
+  "chunk_size\030\003 \001(\004\"o\n\024SnapshotChunkMessage"
+  "\022\027\n\017snapshot_height\030\001 \001(\004\022\023\n\013chunk_index"
+  "\030\002 \001(\004\022\022\n\nchunk_data\030\003 \001(\014\022\025\n\ris_last_ch"
+  "unk\030\004 \001(\010b\006proto3"
   ;
 static const ::_pbi::DescriptorTable* const descriptor_table_p2p_5fmessages_2eproto_deps[1] = {
   &::descriptor_table_bft_5fmessages_2eproto,
 };
 static ::_pbi::once_flag descriptor_table_p2p_5fmessages_2eproto_once;
 const ::_pbi::DescriptorTable descriptor_table_p2p_5fmessages_2eproto = {
-    false, false, 1566, descriptor_table_protodef_p2p_5fmessages_2eproto,
+    false, false, 2057, descriptor_table_protodef_p2p_5fmessages_2eproto,
     "p2p_messages.proto",
-    &descriptor_table_p2p_5fmessages_2eproto_once, descriptor_table_p2p_5fmessages_2eproto_deps, 1, 12,
+    &descriptor_table_p2p_5fmessages_2eproto_once, descriptor_table_p2p_5fmessages_2eproto_deps, 1, 15,
     schemas, file_default_instances, TableStruct_p2p_5fmessages_2eproto::offsets,
     file_level_metadata_p2p_5fmessages_2eproto, file_level_enum_descriptors_p2p_5fmessages_2eproto,
     file_level_service_descriptors_p2p_5fmessages_2eproto,
@@ -416,9 +518,13 @@ HandshakeMessage::HandshakeMessage(const HandshakeMessage& from)
   new (&_impl_) Impl_{
       decltype(_impl_.node_id_){}
     , decltype(_impl_.last_block_hash_){}
+    , decltype(_impl_.genesis_hash_){}
     , decltype(_impl_.protocol_version_){}
     , decltype(_impl_.port_){}
     , decltype(_impl_.current_block_height_){}
+    , decltype(_impl_.max_total_supply_){}
+    , decltype(_impl_.time_quality_score_){}
+    , decltype(_impl_.time_tier_){}
     , /*decltype(_impl_._cached_size_)*/{}};
 
   _internal_metadata_.MergeFrom<::PROTOBUF_NAMESPACE_ID::UnknownFieldSet>(from._internal_metadata_);
@@ -438,9 +544,17 @@ HandshakeMessage::HandshakeMessage(const HandshakeMessage& from)
     _this->_impl_.last_block_hash_.Set(from._internal_last_block_hash(), 
       _this->GetArenaForAllocation());
   }
+  _impl_.genesis_hash_.InitDefault();
+  #ifdef PROTOBUF_FORCE_COPY_DEFAULT_STRING
+    _impl_.genesis_hash_.Set("", GetArenaForAllocation());
+  #endif // PROTOBUF_FORCE_COPY_DEFAULT_STRING
+  if (!from._internal_genesis_hash().empty()) {
+    _this->_impl_.genesis_hash_.Set(from._internal_genesis_hash(), 
+      _this->GetArenaForAllocation());
+  }
   ::memcpy(&_impl_.protocol_version_, &from._impl_.protocol_version_,
-    static_cast<size_t>(reinterpret_cast<char*>(&_impl_.current_block_height_) -
-    reinterpret_cast<char*>(&_impl_.protocol_version_)) + sizeof(_impl_.current_block_height_));
+    static_cast<size_t>(reinterpret_cast<char*>(&_impl_.time_tier_) -
+    reinterpret_cast<char*>(&_impl_.protocol_version_)) + sizeof(_impl_.time_tier_));
   // @@protoc_insertion_point(copy_constructor:chrono_p2p.HandshakeMessage)
 }
 
@@ -451,9 +565,13 @@ inline void HandshakeMessage::SharedCtor(
   new (&_impl_) Impl_{
       decltype(_impl_.node_id_){}
     , decltype(_impl_.last_block_hash_){}
+    , decltype(_impl_.genesis_hash_){}
     , decltype(_impl_.protocol_version_){0}
     , decltype(_impl_.port_){0}
     , decltype(_impl_.current_block_height_){uint64_t{0u}}
+    , decltype(_impl_.max_total_supply_){uint64_t{0u}}
+    , decltype(_impl_.time_quality_score_){0}
+    , decltype(_impl_.time_tier_){0u}
     , /*decltype(_impl_._cached_size_)*/{}
   };
   _impl_.node_id_.InitDefault();
@@ -463,6 +581,10 @@ inline void HandshakeMessage::SharedCtor(
   _impl_.last_block_hash_.InitDefault();
   #ifdef PROTOBUF_FORCE_COPY_DEFAULT_STRING
     _impl_.last_block_hash_.Set("", GetArenaForAllocation());
+  #endif // PROTOBUF_FORCE_COPY_DEFAULT_STRING
+  _impl_.genesis_hash_.InitDefault();
+  #ifdef PROTOBUF_FORCE_COPY_DEFAULT_STRING
+    _impl_.genesis_hash_.Set("", GetArenaForAllocation());
   #endif // PROTOBUF_FORCE_COPY_DEFAULT_STRING
 }
 
@@ -479,6 +601,7 @@ inline void HandshakeMessage::SharedDtor() {
   GOOGLE_DCHECK(GetArenaForAllocation() == nullptr);
   _impl_.node_id_.Destroy();
   _impl_.last_block_hash_.Destroy();
+  _impl_.genesis_hash_.Destroy();
 }
 
 void HandshakeMessage::SetCachedSize(int size) const {
@@ -493,9 +616,10 @@ void HandshakeMessage::Clear() {
 
   _impl_.node_id_.ClearToEmpty();
   _impl_.last_block_hash_.ClearToEmpty();
+  _impl_.genesis_hash_.ClearToEmpty();
   ::memset(&_impl_.protocol_version_, 0, static_cast<size_t>(
-      reinterpret_cast<char*>(&_impl_.current_block_height_) -
-      reinterpret_cast<char*>(&_impl_.protocol_version_)) + sizeof(_impl_.current_block_height_));
+      reinterpret_cast<char*>(&_impl_.time_tier_) -
+      reinterpret_cast<char*>(&_impl_.protocol_version_)) + sizeof(_impl_.time_tier_));
   _internal_metadata_.Clear<::PROTOBUF_NAMESPACE_ID::UnknownFieldSet>();
 }
 
@@ -545,6 +669,40 @@ const char* HandshakeMessage::_InternalParse(const char* ptr, ::_pbi::ParseConte
         if (PROTOBUF_PREDICT_TRUE(static_cast<uint8_t>(tag) == 40)) {
           _impl_.current_block_height_ = ::PROTOBUF_NAMESPACE_ID::internal::ReadVarint64(&ptr);
           CHK_(ptr);
+        } else
+          goto handle_unusual;
+        continue;
+      // string genesis_hash = 6;
+      case 6:
+        if (PROTOBUF_PREDICT_TRUE(static_cast<uint8_t>(tag) == 50)) {
+          auto str = _internal_mutable_genesis_hash();
+          ptr = ::_pbi::InlineGreedyStringParser(str, ptr, ctx);
+          CHK_(ptr);
+          CHK_(::_pbi::VerifyUTF8(str, "chrono_p2p.HandshakeMessage.genesis_hash"));
+        } else
+          goto handle_unusual;
+        continue;
+      // uint64 max_total_supply = 7;
+      case 7:
+        if (PROTOBUF_PREDICT_TRUE(static_cast<uint8_t>(tag) == 56)) {
+          _impl_.max_total_supply_ = ::PROTOBUF_NAMESPACE_ID::internal::ReadVarint64(&ptr);
+          CHK_(ptr);
+        } else
+          goto handle_unusual;
+        continue;
+      // uint32 time_tier = 8;
+      case 8:
+        if (PROTOBUF_PREDICT_TRUE(static_cast<uint8_t>(tag) == 64)) {
+          _impl_.time_tier_ = ::PROTOBUF_NAMESPACE_ID::internal::ReadVarint32(&ptr);
+          CHK_(ptr);
+        } else
+          goto handle_unusual;
+        continue;
+      // double time_quality_score = 9;
+      case 9:
+        if (PROTOBUF_PREDICT_TRUE(static_cast<uint8_t>(tag) == 73)) {
+          _impl_.time_quality_score_ = ::PROTOBUF_NAMESPACE_ID::internal::UnalignedLoad<double>(ptr);
+          ptr += sizeof(double);
         } else
           goto handle_unusual;
         continue;
@@ -611,6 +769,38 @@ uint8_t* HandshakeMessage::_InternalSerialize(
     target = ::_pbi::WireFormatLite::WriteUInt64ToArray(5, this->_internal_current_block_height(), target);
   }
 
+  // string genesis_hash = 6;
+  if (!this->_internal_genesis_hash().empty()) {
+    ::PROTOBUF_NAMESPACE_ID::internal::WireFormatLite::VerifyUtf8String(
+      this->_internal_genesis_hash().data(), static_cast<int>(this->_internal_genesis_hash().length()),
+      ::PROTOBUF_NAMESPACE_ID::internal::WireFormatLite::SERIALIZE,
+      "chrono_p2p.HandshakeMessage.genesis_hash");
+    target = stream->WriteStringMaybeAliased(
+        6, this->_internal_genesis_hash(), target);
+  }
+
+  // uint64 max_total_supply = 7;
+  if (this->_internal_max_total_supply() != 0) {
+    target = stream->EnsureSpace(target);
+    target = ::_pbi::WireFormatLite::WriteUInt64ToArray(7, this->_internal_max_total_supply(), target);
+  }
+
+  // uint32 time_tier = 8;
+  if (this->_internal_time_tier() != 0) {
+    target = stream->EnsureSpace(target);
+    target = ::_pbi::WireFormatLite::WriteUInt32ToArray(8, this->_internal_time_tier(), target);
+  }
+
+  // double time_quality_score = 9;
+  static_assert(sizeof(uint64_t) == sizeof(double), "Code assumes uint64_t and double are the same size.");
+  double tmp_time_quality_score = this->_internal_time_quality_score();
+  uint64_t raw_time_quality_score;
+  memcpy(&raw_time_quality_score, &tmp_time_quality_score, sizeof(tmp_time_quality_score));
+  if (raw_time_quality_score != 0) {
+    target = stream->EnsureSpace(target);
+    target = ::_pbi::WireFormatLite::WriteDoubleToArray(9, this->_internal_time_quality_score(), target);
+  }
+
   if (PROTOBUF_PREDICT_FALSE(_internal_metadata_.have_unknown_fields())) {
     target = ::_pbi::WireFormat::InternalSerializeUnknownFieldsToArray(
         _internal_metadata_.unknown_fields<::PROTOBUF_NAMESPACE_ID::UnknownFieldSet>(::PROTOBUF_NAMESPACE_ID::UnknownFieldSet::default_instance), target, stream);
@@ -641,6 +831,13 @@ size_t HandshakeMessage::ByteSizeLong() const {
         this->_internal_last_block_hash());
   }
 
+  // string genesis_hash = 6;
+  if (!this->_internal_genesis_hash().empty()) {
+    total_size += 1 +
+      ::PROTOBUF_NAMESPACE_ID::internal::WireFormatLite::StringSize(
+        this->_internal_genesis_hash());
+  }
+
   // int32 protocol_version = 2;
   if (this->_internal_protocol_version() != 0) {
     total_size += ::_pbi::WireFormatLite::Int32SizePlusOne(this->_internal_protocol_version());
@@ -654,6 +851,25 @@ size_t HandshakeMessage::ByteSizeLong() const {
   // uint64 current_block_height = 5;
   if (this->_internal_current_block_height() != 0) {
     total_size += ::_pbi::WireFormatLite::UInt64SizePlusOne(this->_internal_current_block_height());
+  }
+
+  // uint64 max_total_supply = 7;
+  if (this->_internal_max_total_supply() != 0) {
+    total_size += ::_pbi::WireFormatLite::UInt64SizePlusOne(this->_internal_max_total_supply());
+  }
+
+  // double time_quality_score = 9;
+  static_assert(sizeof(uint64_t) == sizeof(double), "Code assumes uint64_t and double are the same size.");
+  double tmp_time_quality_score = this->_internal_time_quality_score();
+  uint64_t raw_time_quality_score;
+  memcpy(&raw_time_quality_score, &tmp_time_quality_score, sizeof(tmp_time_quality_score));
+  if (raw_time_quality_score != 0) {
+    total_size += 1 + 8;
+  }
+
+  // uint32 time_tier = 8;
+  if (this->_internal_time_tier() != 0) {
+    total_size += ::_pbi::WireFormatLite::UInt32SizePlusOne(this->_internal_time_tier());
   }
 
   return MaybeComputeUnknownFieldsSize(total_size, &_impl_._cached_size_);
@@ -680,6 +896,9 @@ void HandshakeMessage::MergeImpl(::PROTOBUF_NAMESPACE_ID::Message& to_msg, const
   if (!from._internal_last_block_hash().empty()) {
     _this->_internal_set_last_block_hash(from._internal_last_block_hash());
   }
+  if (!from._internal_genesis_hash().empty()) {
+    _this->_internal_set_genesis_hash(from._internal_genesis_hash());
+  }
   if (from._internal_protocol_version() != 0) {
     _this->_internal_set_protocol_version(from._internal_protocol_version());
   }
@@ -688,6 +907,19 @@ void HandshakeMessage::MergeImpl(::PROTOBUF_NAMESPACE_ID::Message& to_msg, const
   }
   if (from._internal_current_block_height() != 0) {
     _this->_internal_set_current_block_height(from._internal_current_block_height());
+  }
+  if (from._internal_max_total_supply() != 0) {
+    _this->_internal_set_max_total_supply(from._internal_max_total_supply());
+  }
+  static_assert(sizeof(uint64_t) == sizeof(double), "Code assumes uint64_t and double are the same size.");
+  double tmp_time_quality_score = from._internal_time_quality_score();
+  uint64_t raw_time_quality_score;
+  memcpy(&raw_time_quality_score, &tmp_time_quality_score, sizeof(tmp_time_quality_score));
+  if (raw_time_quality_score != 0) {
+    _this->_internal_set_time_quality_score(from._internal_time_quality_score());
+  }
+  if (from._internal_time_tier() != 0) {
+    _this->_internal_set_time_tier(from._internal_time_tier());
   }
   _this->_internal_metadata_.MergeFrom<::PROTOBUF_NAMESPACE_ID::UnknownFieldSet>(from._internal_metadata_);
 }
@@ -716,9 +948,13 @@ void HandshakeMessage::InternalSwap(HandshakeMessage* other) {
       &_impl_.last_block_hash_, lhs_arena,
       &other->_impl_.last_block_hash_, rhs_arena
   );
+  ::PROTOBUF_NAMESPACE_ID::internal::ArenaStringPtr::InternalSwap(
+      &_impl_.genesis_hash_, lhs_arena,
+      &other->_impl_.genesis_hash_, rhs_arena
+  );
   ::PROTOBUF_NAMESPACE_ID::internal::memswap<
-      PROTOBUF_FIELD_OFFSET(HandshakeMessage, _impl_.current_block_height_)
-      + sizeof(HandshakeMessage::_impl_.current_block_height_)
+      PROTOBUF_FIELD_OFFSET(HandshakeMessage, _impl_.time_tier_)
+      + sizeof(HandshakeMessage::_impl_.time_tier_)
       - PROTOBUF_FIELD_OFFSET(HandshakeMessage, _impl_.protocol_version_)>(
           reinterpret_cast<char*>(&_impl_.protocol_version_),
           reinterpret_cast<char*>(&other->_impl_.protocol_version_));
@@ -1543,28 +1779,519 @@ void TransactionMessage::InternalSwap(TransactionMessage* other) {
 
 // ===================================================================
 
-class PeerListMessage::_Internal {
+class GetPeersRequest::_Internal {
  public:
 };
 
-PeerListMessage::PeerListMessage(::PROTOBUF_NAMESPACE_ID::Arena* arena,
+GetPeersRequest::GetPeersRequest(::PROTOBUF_NAMESPACE_ID::Arena* arena,
                          bool is_message_owned)
   : ::PROTOBUF_NAMESPACE_ID::Message(arena, is_message_owned) {
   SharedCtor(arena, is_message_owned);
-  // @@protoc_insertion_point(arena_constructor:chrono_p2p.PeerListMessage)
+  // @@protoc_insertion_point(arena_constructor:chrono_p2p.GetPeersRequest)
 }
-PeerListMessage::PeerListMessage(const PeerListMessage& from)
+GetPeersRequest::GetPeersRequest(const GetPeersRequest& from)
   : ::PROTOBUF_NAMESPACE_ID::Message() {
-  PeerListMessage* const _this = this; (void)_this;
+  GetPeersRequest* const _this = this; (void)_this;
+  new (&_impl_) Impl_{
+      decltype(_impl_.max_peers_){}
+    , /*decltype(_impl_._cached_size_)*/{}};
+
+  _internal_metadata_.MergeFrom<::PROTOBUF_NAMESPACE_ID::UnknownFieldSet>(from._internal_metadata_);
+  _this->_impl_.max_peers_ = from._impl_.max_peers_;
+  // @@protoc_insertion_point(copy_constructor:chrono_p2p.GetPeersRequest)
+}
+
+inline void GetPeersRequest::SharedCtor(
+    ::_pb::Arena* arena, bool is_message_owned) {
+  (void)arena;
+  (void)is_message_owned;
+  new (&_impl_) Impl_{
+      decltype(_impl_.max_peers_){0u}
+    , /*decltype(_impl_._cached_size_)*/{}
+  };
+}
+
+GetPeersRequest::~GetPeersRequest() {
+  // @@protoc_insertion_point(destructor:chrono_p2p.GetPeersRequest)
+  if (auto *arena = _internal_metadata_.DeleteReturnArena<::PROTOBUF_NAMESPACE_ID::UnknownFieldSet>()) {
+  (void)arena;
+    return;
+  }
+  SharedDtor();
+}
+
+inline void GetPeersRequest::SharedDtor() {
+  GOOGLE_DCHECK(GetArenaForAllocation() == nullptr);
+}
+
+void GetPeersRequest::SetCachedSize(int size) const {
+  _impl_._cached_size_.Set(size);
+}
+
+void GetPeersRequest::Clear() {
+// @@protoc_insertion_point(message_clear_start:chrono_p2p.GetPeersRequest)
+  uint32_t cached_has_bits = 0;
+  // Prevent compiler warnings about cached_has_bits being unused
+  (void) cached_has_bits;
+
+  _impl_.max_peers_ = 0u;
+  _internal_metadata_.Clear<::PROTOBUF_NAMESPACE_ID::UnknownFieldSet>();
+}
+
+const char* GetPeersRequest::_InternalParse(const char* ptr, ::_pbi::ParseContext* ctx) {
+#define CHK_(x) if (PROTOBUF_PREDICT_FALSE(!(x))) goto failure
+  while (!ctx->Done(&ptr)) {
+    uint32_t tag;
+    ptr = ::_pbi::ReadTag(ptr, &tag);
+    switch (tag >> 3) {
+      // uint32 max_peers = 1;
+      case 1:
+        if (PROTOBUF_PREDICT_TRUE(static_cast<uint8_t>(tag) == 8)) {
+          _impl_.max_peers_ = ::PROTOBUF_NAMESPACE_ID::internal::ReadVarint32(&ptr);
+          CHK_(ptr);
+        } else
+          goto handle_unusual;
+        continue;
+      default:
+        goto handle_unusual;
+    }  // switch
+  handle_unusual:
+    if ((tag == 0) || ((tag & 7) == 4)) {
+      CHK_(ptr);
+      ctx->SetLastTag(tag);
+      goto message_done;
+    }
+    ptr = UnknownFieldParse(
+        tag,
+        _internal_metadata_.mutable_unknown_fields<::PROTOBUF_NAMESPACE_ID::UnknownFieldSet>(),
+        ptr, ctx);
+    CHK_(ptr != nullptr);
+  }  // while
+message_done:
+  return ptr;
+failure:
+  ptr = nullptr;
+  goto message_done;
+#undef CHK_
+}
+
+uint8_t* GetPeersRequest::_InternalSerialize(
+    uint8_t* target, ::PROTOBUF_NAMESPACE_ID::io::EpsCopyOutputStream* stream) const {
+  // @@protoc_insertion_point(serialize_to_array_start:chrono_p2p.GetPeersRequest)
+  uint32_t cached_has_bits = 0;
+  (void) cached_has_bits;
+
+  // uint32 max_peers = 1;
+  if (this->_internal_max_peers() != 0) {
+    target = stream->EnsureSpace(target);
+    target = ::_pbi::WireFormatLite::WriteUInt32ToArray(1, this->_internal_max_peers(), target);
+  }
+
+  if (PROTOBUF_PREDICT_FALSE(_internal_metadata_.have_unknown_fields())) {
+    target = ::_pbi::WireFormat::InternalSerializeUnknownFieldsToArray(
+        _internal_metadata_.unknown_fields<::PROTOBUF_NAMESPACE_ID::UnknownFieldSet>(::PROTOBUF_NAMESPACE_ID::UnknownFieldSet::default_instance), target, stream);
+  }
+  // @@protoc_insertion_point(serialize_to_array_end:chrono_p2p.GetPeersRequest)
+  return target;
+}
+
+size_t GetPeersRequest::ByteSizeLong() const {
+// @@protoc_insertion_point(message_byte_size_start:chrono_p2p.GetPeersRequest)
+  size_t total_size = 0;
+
+  uint32_t cached_has_bits = 0;
+  // Prevent compiler warnings about cached_has_bits being unused
+  (void) cached_has_bits;
+
+  // uint32 max_peers = 1;
+  if (this->_internal_max_peers() != 0) {
+    total_size += ::_pbi::WireFormatLite::UInt32SizePlusOne(this->_internal_max_peers());
+  }
+
+  return MaybeComputeUnknownFieldsSize(total_size, &_impl_._cached_size_);
+}
+
+const ::PROTOBUF_NAMESPACE_ID::Message::ClassData GetPeersRequest::_class_data_ = {
+    ::PROTOBUF_NAMESPACE_ID::Message::CopyWithSourceCheck,
+    GetPeersRequest::MergeImpl
+};
+const ::PROTOBUF_NAMESPACE_ID::Message::ClassData*GetPeersRequest::GetClassData() const { return &_class_data_; }
+
+
+void GetPeersRequest::MergeImpl(::PROTOBUF_NAMESPACE_ID::Message& to_msg, const ::PROTOBUF_NAMESPACE_ID::Message& from_msg) {
+  auto* const _this = static_cast<GetPeersRequest*>(&to_msg);
+  auto& from = static_cast<const GetPeersRequest&>(from_msg);
+  // @@protoc_insertion_point(class_specific_merge_from_start:chrono_p2p.GetPeersRequest)
+  GOOGLE_DCHECK_NE(&from, _this);
+  uint32_t cached_has_bits = 0;
+  (void) cached_has_bits;
+
+  if (from._internal_max_peers() != 0) {
+    _this->_internal_set_max_peers(from._internal_max_peers());
+  }
+  _this->_internal_metadata_.MergeFrom<::PROTOBUF_NAMESPACE_ID::UnknownFieldSet>(from._internal_metadata_);
+}
+
+void GetPeersRequest::CopyFrom(const GetPeersRequest& from) {
+// @@protoc_insertion_point(class_specific_copy_from_start:chrono_p2p.GetPeersRequest)
+  if (&from == this) return;
+  Clear();
+  MergeFrom(from);
+}
+
+bool GetPeersRequest::IsInitialized() const {
+  return true;
+}
+
+void GetPeersRequest::InternalSwap(GetPeersRequest* other) {
+  using std::swap;
+  _internal_metadata_.InternalSwap(&other->_internal_metadata_);
+  swap(_impl_.max_peers_, other->_impl_.max_peers_);
+}
+
+::PROTOBUF_NAMESPACE_ID::Metadata GetPeersRequest::GetMetadata() const {
+  return ::_pbi::AssignDescriptors(
+      &descriptor_table_p2p_5fmessages_2eproto_getter, &descriptor_table_p2p_5fmessages_2eproto_once,
+      file_level_metadata_p2p_5fmessages_2eproto[5]);
+}
+
+// ===================================================================
+
+class PeerAddress::_Internal {
+ public:
+};
+
+PeerAddress::PeerAddress(::PROTOBUF_NAMESPACE_ID::Arena* arena,
+                         bool is_message_owned)
+  : ::PROTOBUF_NAMESPACE_ID::Message(arena, is_message_owned) {
+  SharedCtor(arena, is_message_owned);
+  // @@protoc_insertion_point(arena_constructor:chrono_p2p.PeerAddress)
+}
+PeerAddress::PeerAddress(const PeerAddress& from)
+  : ::PROTOBUF_NAMESPACE_ID::Message() {
+  PeerAddress* const _this = this; (void)_this;
+  new (&_impl_) Impl_{
+      decltype(_impl_.node_id_){}
+    , decltype(_impl_.address_){}
+    , decltype(_impl_.last_seen_){}
+    , decltype(_impl_.is_validator_){}
+    , /*decltype(_impl_._cached_size_)*/{}};
+
+  _internal_metadata_.MergeFrom<::PROTOBUF_NAMESPACE_ID::UnknownFieldSet>(from._internal_metadata_);
+  _impl_.node_id_.InitDefault();
+  #ifdef PROTOBUF_FORCE_COPY_DEFAULT_STRING
+    _impl_.node_id_.Set("", GetArenaForAllocation());
+  #endif // PROTOBUF_FORCE_COPY_DEFAULT_STRING
+  if (!from._internal_node_id().empty()) {
+    _this->_impl_.node_id_.Set(from._internal_node_id(), 
+      _this->GetArenaForAllocation());
+  }
+  _impl_.address_.InitDefault();
+  #ifdef PROTOBUF_FORCE_COPY_DEFAULT_STRING
+    _impl_.address_.Set("", GetArenaForAllocation());
+  #endif // PROTOBUF_FORCE_COPY_DEFAULT_STRING
+  if (!from._internal_address().empty()) {
+    _this->_impl_.address_.Set(from._internal_address(), 
+      _this->GetArenaForAllocation());
+  }
+  ::memcpy(&_impl_.last_seen_, &from._impl_.last_seen_,
+    static_cast<size_t>(reinterpret_cast<char*>(&_impl_.is_validator_) -
+    reinterpret_cast<char*>(&_impl_.last_seen_)) + sizeof(_impl_.is_validator_));
+  // @@protoc_insertion_point(copy_constructor:chrono_p2p.PeerAddress)
+}
+
+inline void PeerAddress::SharedCtor(
+    ::_pb::Arena* arena, bool is_message_owned) {
+  (void)arena;
+  (void)is_message_owned;
+  new (&_impl_) Impl_{
+      decltype(_impl_.node_id_){}
+    , decltype(_impl_.address_){}
+    , decltype(_impl_.last_seen_){uint64_t{0u}}
+    , decltype(_impl_.is_validator_){false}
+    , /*decltype(_impl_._cached_size_)*/{}
+  };
+  _impl_.node_id_.InitDefault();
+  #ifdef PROTOBUF_FORCE_COPY_DEFAULT_STRING
+    _impl_.node_id_.Set("", GetArenaForAllocation());
+  #endif // PROTOBUF_FORCE_COPY_DEFAULT_STRING
+  _impl_.address_.InitDefault();
+  #ifdef PROTOBUF_FORCE_COPY_DEFAULT_STRING
+    _impl_.address_.Set("", GetArenaForAllocation());
+  #endif // PROTOBUF_FORCE_COPY_DEFAULT_STRING
+}
+
+PeerAddress::~PeerAddress() {
+  // @@protoc_insertion_point(destructor:chrono_p2p.PeerAddress)
+  if (auto *arena = _internal_metadata_.DeleteReturnArena<::PROTOBUF_NAMESPACE_ID::UnknownFieldSet>()) {
+  (void)arena;
+    return;
+  }
+  SharedDtor();
+}
+
+inline void PeerAddress::SharedDtor() {
+  GOOGLE_DCHECK(GetArenaForAllocation() == nullptr);
+  _impl_.node_id_.Destroy();
+  _impl_.address_.Destroy();
+}
+
+void PeerAddress::SetCachedSize(int size) const {
+  _impl_._cached_size_.Set(size);
+}
+
+void PeerAddress::Clear() {
+// @@protoc_insertion_point(message_clear_start:chrono_p2p.PeerAddress)
+  uint32_t cached_has_bits = 0;
+  // Prevent compiler warnings about cached_has_bits being unused
+  (void) cached_has_bits;
+
+  _impl_.node_id_.ClearToEmpty();
+  _impl_.address_.ClearToEmpty();
+  ::memset(&_impl_.last_seen_, 0, static_cast<size_t>(
+      reinterpret_cast<char*>(&_impl_.is_validator_) -
+      reinterpret_cast<char*>(&_impl_.last_seen_)) + sizeof(_impl_.is_validator_));
+  _internal_metadata_.Clear<::PROTOBUF_NAMESPACE_ID::UnknownFieldSet>();
+}
+
+const char* PeerAddress::_InternalParse(const char* ptr, ::_pbi::ParseContext* ctx) {
+#define CHK_(x) if (PROTOBUF_PREDICT_FALSE(!(x))) goto failure
+  while (!ctx->Done(&ptr)) {
+    uint32_t tag;
+    ptr = ::_pbi::ReadTag(ptr, &tag);
+    switch (tag >> 3) {
+      // string node_id = 1;
+      case 1:
+        if (PROTOBUF_PREDICT_TRUE(static_cast<uint8_t>(tag) == 10)) {
+          auto str = _internal_mutable_node_id();
+          ptr = ::_pbi::InlineGreedyStringParser(str, ptr, ctx);
+          CHK_(ptr);
+          CHK_(::_pbi::VerifyUTF8(str, "chrono_p2p.PeerAddress.node_id"));
+        } else
+          goto handle_unusual;
+        continue;
+      // string address = 2;
+      case 2:
+        if (PROTOBUF_PREDICT_TRUE(static_cast<uint8_t>(tag) == 18)) {
+          auto str = _internal_mutable_address();
+          ptr = ::_pbi::InlineGreedyStringParser(str, ptr, ctx);
+          CHK_(ptr);
+          CHK_(::_pbi::VerifyUTF8(str, "chrono_p2p.PeerAddress.address"));
+        } else
+          goto handle_unusual;
+        continue;
+      // uint64 last_seen = 3;
+      case 3:
+        if (PROTOBUF_PREDICT_TRUE(static_cast<uint8_t>(tag) == 24)) {
+          _impl_.last_seen_ = ::PROTOBUF_NAMESPACE_ID::internal::ReadVarint64(&ptr);
+          CHK_(ptr);
+        } else
+          goto handle_unusual;
+        continue;
+      // bool is_validator = 4;
+      case 4:
+        if (PROTOBUF_PREDICT_TRUE(static_cast<uint8_t>(tag) == 32)) {
+          _impl_.is_validator_ = ::PROTOBUF_NAMESPACE_ID::internal::ReadVarint64(&ptr);
+          CHK_(ptr);
+        } else
+          goto handle_unusual;
+        continue;
+      default:
+        goto handle_unusual;
+    }  // switch
+  handle_unusual:
+    if ((tag == 0) || ((tag & 7) == 4)) {
+      CHK_(ptr);
+      ctx->SetLastTag(tag);
+      goto message_done;
+    }
+    ptr = UnknownFieldParse(
+        tag,
+        _internal_metadata_.mutable_unknown_fields<::PROTOBUF_NAMESPACE_ID::UnknownFieldSet>(),
+        ptr, ctx);
+    CHK_(ptr != nullptr);
+  }  // while
+message_done:
+  return ptr;
+failure:
+  ptr = nullptr;
+  goto message_done;
+#undef CHK_
+}
+
+uint8_t* PeerAddress::_InternalSerialize(
+    uint8_t* target, ::PROTOBUF_NAMESPACE_ID::io::EpsCopyOutputStream* stream) const {
+  // @@protoc_insertion_point(serialize_to_array_start:chrono_p2p.PeerAddress)
+  uint32_t cached_has_bits = 0;
+  (void) cached_has_bits;
+
+  // string node_id = 1;
+  if (!this->_internal_node_id().empty()) {
+    ::PROTOBUF_NAMESPACE_ID::internal::WireFormatLite::VerifyUtf8String(
+      this->_internal_node_id().data(), static_cast<int>(this->_internal_node_id().length()),
+      ::PROTOBUF_NAMESPACE_ID::internal::WireFormatLite::SERIALIZE,
+      "chrono_p2p.PeerAddress.node_id");
+    target = stream->WriteStringMaybeAliased(
+        1, this->_internal_node_id(), target);
+  }
+
+  // string address = 2;
+  if (!this->_internal_address().empty()) {
+    ::PROTOBUF_NAMESPACE_ID::internal::WireFormatLite::VerifyUtf8String(
+      this->_internal_address().data(), static_cast<int>(this->_internal_address().length()),
+      ::PROTOBUF_NAMESPACE_ID::internal::WireFormatLite::SERIALIZE,
+      "chrono_p2p.PeerAddress.address");
+    target = stream->WriteStringMaybeAliased(
+        2, this->_internal_address(), target);
+  }
+
+  // uint64 last_seen = 3;
+  if (this->_internal_last_seen() != 0) {
+    target = stream->EnsureSpace(target);
+    target = ::_pbi::WireFormatLite::WriteUInt64ToArray(3, this->_internal_last_seen(), target);
+  }
+
+  // bool is_validator = 4;
+  if (this->_internal_is_validator() != 0) {
+    target = stream->EnsureSpace(target);
+    target = ::_pbi::WireFormatLite::WriteBoolToArray(4, this->_internal_is_validator(), target);
+  }
+
+  if (PROTOBUF_PREDICT_FALSE(_internal_metadata_.have_unknown_fields())) {
+    target = ::_pbi::WireFormat::InternalSerializeUnknownFieldsToArray(
+        _internal_metadata_.unknown_fields<::PROTOBUF_NAMESPACE_ID::UnknownFieldSet>(::PROTOBUF_NAMESPACE_ID::UnknownFieldSet::default_instance), target, stream);
+  }
+  // @@protoc_insertion_point(serialize_to_array_end:chrono_p2p.PeerAddress)
+  return target;
+}
+
+size_t PeerAddress::ByteSizeLong() const {
+// @@protoc_insertion_point(message_byte_size_start:chrono_p2p.PeerAddress)
+  size_t total_size = 0;
+
+  uint32_t cached_has_bits = 0;
+  // Prevent compiler warnings about cached_has_bits being unused
+  (void) cached_has_bits;
+
+  // string node_id = 1;
+  if (!this->_internal_node_id().empty()) {
+    total_size += 1 +
+      ::PROTOBUF_NAMESPACE_ID::internal::WireFormatLite::StringSize(
+        this->_internal_node_id());
+  }
+
+  // string address = 2;
+  if (!this->_internal_address().empty()) {
+    total_size += 1 +
+      ::PROTOBUF_NAMESPACE_ID::internal::WireFormatLite::StringSize(
+        this->_internal_address());
+  }
+
+  // uint64 last_seen = 3;
+  if (this->_internal_last_seen() != 0) {
+    total_size += ::_pbi::WireFormatLite::UInt64SizePlusOne(this->_internal_last_seen());
+  }
+
+  // bool is_validator = 4;
+  if (this->_internal_is_validator() != 0) {
+    total_size += 1 + 1;
+  }
+
+  return MaybeComputeUnknownFieldsSize(total_size, &_impl_._cached_size_);
+}
+
+const ::PROTOBUF_NAMESPACE_ID::Message::ClassData PeerAddress::_class_data_ = {
+    ::PROTOBUF_NAMESPACE_ID::Message::CopyWithSourceCheck,
+    PeerAddress::MergeImpl
+};
+const ::PROTOBUF_NAMESPACE_ID::Message::ClassData*PeerAddress::GetClassData() const { return &_class_data_; }
+
+
+void PeerAddress::MergeImpl(::PROTOBUF_NAMESPACE_ID::Message& to_msg, const ::PROTOBUF_NAMESPACE_ID::Message& from_msg) {
+  auto* const _this = static_cast<PeerAddress*>(&to_msg);
+  auto& from = static_cast<const PeerAddress&>(from_msg);
+  // @@protoc_insertion_point(class_specific_merge_from_start:chrono_p2p.PeerAddress)
+  GOOGLE_DCHECK_NE(&from, _this);
+  uint32_t cached_has_bits = 0;
+  (void) cached_has_bits;
+
+  if (!from._internal_node_id().empty()) {
+    _this->_internal_set_node_id(from._internal_node_id());
+  }
+  if (!from._internal_address().empty()) {
+    _this->_internal_set_address(from._internal_address());
+  }
+  if (from._internal_last_seen() != 0) {
+    _this->_internal_set_last_seen(from._internal_last_seen());
+  }
+  if (from._internal_is_validator() != 0) {
+    _this->_internal_set_is_validator(from._internal_is_validator());
+  }
+  _this->_internal_metadata_.MergeFrom<::PROTOBUF_NAMESPACE_ID::UnknownFieldSet>(from._internal_metadata_);
+}
+
+void PeerAddress::CopyFrom(const PeerAddress& from) {
+// @@protoc_insertion_point(class_specific_copy_from_start:chrono_p2p.PeerAddress)
+  if (&from == this) return;
+  Clear();
+  MergeFrom(from);
+}
+
+bool PeerAddress::IsInitialized() const {
+  return true;
+}
+
+void PeerAddress::InternalSwap(PeerAddress* other) {
+  using std::swap;
+  auto* lhs_arena = GetArenaForAllocation();
+  auto* rhs_arena = other->GetArenaForAllocation();
+  _internal_metadata_.InternalSwap(&other->_internal_metadata_);
+  ::PROTOBUF_NAMESPACE_ID::internal::ArenaStringPtr::InternalSwap(
+      &_impl_.node_id_, lhs_arena,
+      &other->_impl_.node_id_, rhs_arena
+  );
+  ::PROTOBUF_NAMESPACE_ID::internal::ArenaStringPtr::InternalSwap(
+      &_impl_.address_, lhs_arena,
+      &other->_impl_.address_, rhs_arena
+  );
+  ::PROTOBUF_NAMESPACE_ID::internal::memswap<
+      PROTOBUF_FIELD_OFFSET(PeerAddress, _impl_.is_validator_)
+      + sizeof(PeerAddress::_impl_.is_validator_)
+      - PROTOBUF_FIELD_OFFSET(PeerAddress, _impl_.last_seen_)>(
+          reinterpret_cast<char*>(&_impl_.last_seen_),
+          reinterpret_cast<char*>(&other->_impl_.last_seen_));
+}
+
+::PROTOBUF_NAMESPACE_ID::Metadata PeerAddress::GetMetadata() const {
+  return ::_pbi::AssignDescriptors(
+      &descriptor_table_p2p_5fmessages_2eproto_getter, &descriptor_table_p2p_5fmessages_2eproto_once,
+      file_level_metadata_p2p_5fmessages_2eproto[6]);
+}
+
+// ===================================================================
+
+class GetPeersResponse::_Internal {
+ public:
+};
+
+GetPeersResponse::GetPeersResponse(::PROTOBUF_NAMESPACE_ID::Arena* arena,
+                         bool is_message_owned)
+  : ::PROTOBUF_NAMESPACE_ID::Message(arena, is_message_owned) {
+  SharedCtor(arena, is_message_owned);
+  // @@protoc_insertion_point(arena_constructor:chrono_p2p.GetPeersResponse)
+}
+GetPeersResponse::GetPeersResponse(const GetPeersResponse& from)
+  : ::PROTOBUF_NAMESPACE_ID::Message() {
+  GetPeersResponse* const _this = this; (void)_this;
   new (&_impl_) Impl_{
       decltype(_impl_.peers_){from._impl_.peers_}
     , /*decltype(_impl_._cached_size_)*/{}};
 
   _internal_metadata_.MergeFrom<::PROTOBUF_NAMESPACE_ID::UnknownFieldSet>(from._internal_metadata_);
-  // @@protoc_insertion_point(copy_constructor:chrono_p2p.PeerListMessage)
+  // @@protoc_insertion_point(copy_constructor:chrono_p2p.GetPeersResponse)
 }
 
-inline void PeerListMessage::SharedCtor(
+inline void GetPeersResponse::SharedCtor(
     ::_pb::Arena* arena, bool is_message_owned) {
   (void)arena;
   (void)is_message_owned;
@@ -1574,8 +2301,8 @@ inline void PeerListMessage::SharedCtor(
   };
 }
 
-PeerListMessage::~PeerListMessage() {
-  // @@protoc_insertion_point(destructor:chrono_p2p.PeerListMessage)
+GetPeersResponse::~GetPeersResponse() {
+  // @@protoc_insertion_point(destructor:chrono_p2p.GetPeersResponse)
   if (auto *arena = _internal_metadata_.DeleteReturnArena<::PROTOBUF_NAMESPACE_ID::UnknownFieldSet>()) {
   (void)arena;
     return;
@@ -1583,17 +2310,17 @@ PeerListMessage::~PeerListMessage() {
   SharedDtor();
 }
 
-inline void PeerListMessage::SharedDtor() {
+inline void GetPeersResponse::SharedDtor() {
   GOOGLE_DCHECK(GetArenaForAllocation() == nullptr);
   _impl_.peers_.~RepeatedPtrField();
 }
 
-void PeerListMessage::SetCachedSize(int size) const {
+void GetPeersResponse::SetCachedSize(int size) const {
   _impl_._cached_size_.Set(size);
 }
 
-void PeerListMessage::Clear() {
-// @@protoc_insertion_point(message_clear_start:chrono_p2p.PeerListMessage)
+void GetPeersResponse::Clear() {
+// @@protoc_insertion_point(message_clear_start:chrono_p2p.GetPeersResponse)
   uint32_t cached_has_bits = 0;
   // Prevent compiler warnings about cached_has_bits being unused
   (void) cached_has_bits;
@@ -1602,22 +2329,20 @@ void PeerListMessage::Clear() {
   _internal_metadata_.Clear<::PROTOBUF_NAMESPACE_ID::UnknownFieldSet>();
 }
 
-const char* PeerListMessage::_InternalParse(const char* ptr, ::_pbi::ParseContext* ctx) {
+const char* GetPeersResponse::_InternalParse(const char* ptr, ::_pbi::ParseContext* ctx) {
 #define CHK_(x) if (PROTOBUF_PREDICT_FALSE(!(x))) goto failure
   while (!ctx->Done(&ptr)) {
     uint32_t tag;
     ptr = ::_pbi::ReadTag(ptr, &tag);
     switch (tag >> 3) {
-      // repeated string peers = 1;
+      // repeated .chrono_p2p.PeerAddress peers = 1;
       case 1:
         if (PROTOBUF_PREDICT_TRUE(static_cast<uint8_t>(tag) == 10)) {
           ptr -= 1;
           do {
             ptr += 1;
-            auto str = _internal_add_peers();
-            ptr = ::_pbi::InlineGreedyStringParser(str, ptr, ctx);
+            ptr = ctx->ParseMessage(_internal_add_peers(), ptr);
             CHK_(ptr);
-            CHK_(::_pbi::VerifyUTF8(str, "chrono_p2p.PeerListMessage.peers"));
             if (!ctx->DataAvailable(ptr)) break;
           } while (::PROTOBUF_NAMESPACE_ID::internal::ExpectTag<10>(ptr));
         } else
@@ -1646,60 +2371,57 @@ failure:
 #undef CHK_
 }
 
-uint8_t* PeerListMessage::_InternalSerialize(
+uint8_t* GetPeersResponse::_InternalSerialize(
     uint8_t* target, ::PROTOBUF_NAMESPACE_ID::io::EpsCopyOutputStream* stream) const {
-  // @@protoc_insertion_point(serialize_to_array_start:chrono_p2p.PeerListMessage)
+  // @@protoc_insertion_point(serialize_to_array_start:chrono_p2p.GetPeersResponse)
   uint32_t cached_has_bits = 0;
   (void) cached_has_bits;
 
-  // repeated string peers = 1;
-  for (int i = 0, n = this->_internal_peers_size(); i < n; i++) {
-    const auto& s = this->_internal_peers(i);
-    ::PROTOBUF_NAMESPACE_ID::internal::WireFormatLite::VerifyUtf8String(
-      s.data(), static_cast<int>(s.length()),
-      ::PROTOBUF_NAMESPACE_ID::internal::WireFormatLite::SERIALIZE,
-      "chrono_p2p.PeerListMessage.peers");
-    target = stream->WriteString(1, s, target);
+  // repeated .chrono_p2p.PeerAddress peers = 1;
+  for (unsigned i = 0,
+      n = static_cast<unsigned>(this->_internal_peers_size()); i < n; i++) {
+    const auto& repfield = this->_internal_peers(i);
+    target = ::PROTOBUF_NAMESPACE_ID::internal::WireFormatLite::
+        InternalWriteMessage(1, repfield, repfield.GetCachedSize(), target, stream);
   }
 
   if (PROTOBUF_PREDICT_FALSE(_internal_metadata_.have_unknown_fields())) {
     target = ::_pbi::WireFormat::InternalSerializeUnknownFieldsToArray(
         _internal_metadata_.unknown_fields<::PROTOBUF_NAMESPACE_ID::UnknownFieldSet>(::PROTOBUF_NAMESPACE_ID::UnknownFieldSet::default_instance), target, stream);
   }
-  // @@protoc_insertion_point(serialize_to_array_end:chrono_p2p.PeerListMessage)
+  // @@protoc_insertion_point(serialize_to_array_end:chrono_p2p.GetPeersResponse)
   return target;
 }
 
-size_t PeerListMessage::ByteSizeLong() const {
-// @@protoc_insertion_point(message_byte_size_start:chrono_p2p.PeerListMessage)
+size_t GetPeersResponse::ByteSizeLong() const {
+// @@protoc_insertion_point(message_byte_size_start:chrono_p2p.GetPeersResponse)
   size_t total_size = 0;
 
   uint32_t cached_has_bits = 0;
   // Prevent compiler warnings about cached_has_bits being unused
   (void) cached_has_bits;
 
-  // repeated string peers = 1;
-  total_size += 1 *
-      ::PROTOBUF_NAMESPACE_ID::internal::FromIntSize(_impl_.peers_.size());
-  for (int i = 0, n = _impl_.peers_.size(); i < n; i++) {
-    total_size += ::PROTOBUF_NAMESPACE_ID::internal::WireFormatLite::StringSize(
-      _impl_.peers_.Get(i));
+  // repeated .chrono_p2p.PeerAddress peers = 1;
+  total_size += 1UL * this->_internal_peers_size();
+  for (const auto& msg : this->_impl_.peers_) {
+    total_size +=
+      ::PROTOBUF_NAMESPACE_ID::internal::WireFormatLite::MessageSize(msg);
   }
 
   return MaybeComputeUnknownFieldsSize(total_size, &_impl_._cached_size_);
 }
 
-const ::PROTOBUF_NAMESPACE_ID::Message::ClassData PeerListMessage::_class_data_ = {
+const ::PROTOBUF_NAMESPACE_ID::Message::ClassData GetPeersResponse::_class_data_ = {
     ::PROTOBUF_NAMESPACE_ID::Message::CopyWithSourceCheck,
-    PeerListMessage::MergeImpl
+    GetPeersResponse::MergeImpl
 };
-const ::PROTOBUF_NAMESPACE_ID::Message::ClassData*PeerListMessage::GetClassData() const { return &_class_data_; }
+const ::PROTOBUF_NAMESPACE_ID::Message::ClassData*GetPeersResponse::GetClassData() const { return &_class_data_; }
 
 
-void PeerListMessage::MergeImpl(::PROTOBUF_NAMESPACE_ID::Message& to_msg, const ::PROTOBUF_NAMESPACE_ID::Message& from_msg) {
-  auto* const _this = static_cast<PeerListMessage*>(&to_msg);
-  auto& from = static_cast<const PeerListMessage&>(from_msg);
-  // @@protoc_insertion_point(class_specific_merge_from_start:chrono_p2p.PeerListMessage)
+void GetPeersResponse::MergeImpl(::PROTOBUF_NAMESPACE_ID::Message& to_msg, const ::PROTOBUF_NAMESPACE_ID::Message& from_msg) {
+  auto* const _this = static_cast<GetPeersResponse*>(&to_msg);
+  auto& from = static_cast<const GetPeersResponse&>(from_msg);
+  // @@protoc_insertion_point(class_specific_merge_from_start:chrono_p2p.GetPeersResponse)
   GOOGLE_DCHECK_NE(&from, _this);
   uint32_t cached_has_bits = 0;
   (void) cached_has_bits;
@@ -1708,27 +2430,27 @@ void PeerListMessage::MergeImpl(::PROTOBUF_NAMESPACE_ID::Message& to_msg, const 
   _this->_internal_metadata_.MergeFrom<::PROTOBUF_NAMESPACE_ID::UnknownFieldSet>(from._internal_metadata_);
 }
 
-void PeerListMessage::CopyFrom(const PeerListMessage& from) {
-// @@protoc_insertion_point(class_specific_copy_from_start:chrono_p2p.PeerListMessage)
+void GetPeersResponse::CopyFrom(const GetPeersResponse& from) {
+// @@protoc_insertion_point(class_specific_copy_from_start:chrono_p2p.GetPeersResponse)
   if (&from == this) return;
   Clear();
   MergeFrom(from);
 }
 
-bool PeerListMessage::IsInitialized() const {
+bool GetPeersResponse::IsInitialized() const {
   return true;
 }
 
-void PeerListMessage::InternalSwap(PeerListMessage* other) {
+void GetPeersResponse::InternalSwap(GetPeersResponse* other) {
   using std::swap;
   _internal_metadata_.InternalSwap(&other->_internal_metadata_);
   _impl_.peers_.InternalSwap(&other->_impl_.peers_);
 }
 
-::PROTOBUF_NAMESPACE_ID::Metadata PeerListMessage::GetMetadata() const {
+::PROTOBUF_NAMESPACE_ID::Metadata GetPeersResponse::GetMetadata() const {
   return ::_pbi::AssignDescriptors(
       &descriptor_table_p2p_5fmessages_2eproto_getter, &descriptor_table_p2p_5fmessages_2eproto_once,
-      file_level_metadata_p2p_5fmessages_2eproto[5]);
+      file_level_metadata_p2p_5fmessages_2eproto[7]);
 }
 
 // ===================================================================
@@ -1740,14 +2462,16 @@ class P2PMessage::_Internal {
   static const ::chrono_p2p::BlockMessage& block(const P2PMessage* msg);
   static const ::chrono_p2p::GetTransactionsMessage& get_transactions(const P2PMessage* msg);
   static const ::chrono_p2p::TransactionMessage& transaction(const P2PMessage* msg);
-  static const ::chrono_p2p::PeerListMessage& peer_list(const P2PMessage* msg);
   static const ::chronos::bft::Prevote& prevote(const P2PMessage* msg);
   static const ::chronos::bft::Precommit& precommit(const P2PMessage* msg);
   static const ::chronos::bft::NewRound& new_round(const P2PMessage* msg);
+  static const ::chrono_p2p::GetPeersRequest& get_peers_request(const P2PMessage* msg);
+  static const ::chrono_p2p::GetPeersResponse& get_peers_response(const P2PMessage* msg);
   static const ::chrono_p2p::GetSnapshotsMessage& get_snapshots(const P2PMessage* msg);
   static const ::chrono_p2p::SnapshotsAvailableMessage& snapshots_available(const P2PMessage* msg);
   static const ::chrono_p2p::GetSnapshotChunkMessage& get_snapshot_chunk(const P2PMessage* msg);
   static const ::chrono_p2p::SnapshotChunkMessage& snapshot_chunk(const P2PMessage* msg);
+  static const ::chrono_p2p::MessageFragment& fragment(const P2PMessage* msg);
 };
 
 const ::chrono_p2p::HandshakeMessage&
@@ -1770,10 +2494,6 @@ const ::chrono_p2p::TransactionMessage&
 P2PMessage::_Internal::transaction(const P2PMessage* msg) {
   return *msg->_impl_.payload_.transaction_;
 }
-const ::chrono_p2p::PeerListMessage&
-P2PMessage::_Internal::peer_list(const P2PMessage* msg) {
-  return *msg->_impl_.payload_.peer_list_;
-}
 const ::chronos::bft::Prevote&
 P2PMessage::_Internal::prevote(const P2PMessage* msg) {
   return *msg->_impl_.payload_.prevote_;
@@ -1785,6 +2505,14 @@ P2PMessage::_Internal::precommit(const P2PMessage* msg) {
 const ::chronos::bft::NewRound&
 P2PMessage::_Internal::new_round(const P2PMessage* msg) {
   return *msg->_impl_.payload_.new_round_;
+}
+const ::chrono_p2p::GetPeersRequest&
+P2PMessage::_Internal::get_peers_request(const P2PMessage* msg) {
+  return *msg->_impl_.payload_.get_peers_request_;
+}
+const ::chrono_p2p::GetPeersResponse&
+P2PMessage::_Internal::get_peers_response(const P2PMessage* msg) {
+  return *msg->_impl_.payload_.get_peers_response_;
 }
 const ::chrono_p2p::GetSnapshotsMessage&
 P2PMessage::_Internal::get_snapshots(const P2PMessage* msg) {
@@ -1801,6 +2529,10 @@ P2PMessage::_Internal::get_snapshot_chunk(const P2PMessage* msg) {
 const ::chrono_p2p::SnapshotChunkMessage&
 P2PMessage::_Internal::snapshot_chunk(const P2PMessage* msg) {
   return *msg->_impl_.payload_.snapshot_chunk_;
+}
+const ::chrono_p2p::MessageFragment&
+P2PMessage::_Internal::fragment(const P2PMessage* msg) {
+  return *msg->_impl_.payload_.fragment_;
 }
 void P2PMessage::set_allocated_handshake(::chrono_p2p::HandshakeMessage* handshake) {
   ::PROTOBUF_NAMESPACE_ID::Arena* message_arena = GetArenaForAllocation();
@@ -1877,21 +2609,6 @@ void P2PMessage::set_allocated_transaction(::chrono_p2p::TransactionMessage* tra
   }
   // @@protoc_insertion_point(field_set_allocated:chrono_p2p.P2PMessage.transaction)
 }
-void P2PMessage::set_allocated_peer_list(::chrono_p2p::PeerListMessage* peer_list) {
-  ::PROTOBUF_NAMESPACE_ID::Arena* message_arena = GetArenaForAllocation();
-  clear_payload();
-  if (peer_list) {
-    ::PROTOBUF_NAMESPACE_ID::Arena* submessage_arena =
-      ::PROTOBUF_NAMESPACE_ID::Arena::InternalGetOwningArena(peer_list);
-    if (message_arena != submessage_arena) {
-      peer_list = ::PROTOBUF_NAMESPACE_ID::internal::GetOwnedMessage(
-          message_arena, peer_list, submessage_arena);
-    }
-    set_has_peer_list();
-    _impl_.payload_.peer_list_ = peer_list;
-  }
-  // @@protoc_insertion_point(field_set_allocated:chrono_p2p.P2PMessage.peer_list)
-}
 void P2PMessage::set_allocated_prevote(::chronos::bft::Prevote* prevote) {
   ::PROTOBUF_NAMESPACE_ID::Arena* message_arena = GetArenaForAllocation();
   clear_payload();
@@ -1964,6 +2681,36 @@ void P2PMessage::clear_new_round() {
     clear_has_payload();
   }
 }
+void P2PMessage::set_allocated_get_peers_request(::chrono_p2p::GetPeersRequest* get_peers_request) {
+  ::PROTOBUF_NAMESPACE_ID::Arena* message_arena = GetArenaForAllocation();
+  clear_payload();
+  if (get_peers_request) {
+    ::PROTOBUF_NAMESPACE_ID::Arena* submessage_arena =
+      ::PROTOBUF_NAMESPACE_ID::Arena::InternalGetOwningArena(get_peers_request);
+    if (message_arena != submessage_arena) {
+      get_peers_request = ::PROTOBUF_NAMESPACE_ID::internal::GetOwnedMessage(
+          message_arena, get_peers_request, submessage_arena);
+    }
+    set_has_get_peers_request();
+    _impl_.payload_.get_peers_request_ = get_peers_request;
+  }
+  // @@protoc_insertion_point(field_set_allocated:chrono_p2p.P2PMessage.get_peers_request)
+}
+void P2PMessage::set_allocated_get_peers_response(::chrono_p2p::GetPeersResponse* get_peers_response) {
+  ::PROTOBUF_NAMESPACE_ID::Arena* message_arena = GetArenaForAllocation();
+  clear_payload();
+  if (get_peers_response) {
+    ::PROTOBUF_NAMESPACE_ID::Arena* submessage_arena =
+      ::PROTOBUF_NAMESPACE_ID::Arena::InternalGetOwningArena(get_peers_response);
+    if (message_arena != submessage_arena) {
+      get_peers_response = ::PROTOBUF_NAMESPACE_ID::internal::GetOwnedMessage(
+          message_arena, get_peers_response, submessage_arena);
+    }
+    set_has_get_peers_response();
+    _impl_.payload_.get_peers_response_ = get_peers_response;
+  }
+  // @@protoc_insertion_point(field_set_allocated:chrono_p2p.P2PMessage.get_peers_response)
+}
 void P2PMessage::set_allocated_get_snapshots(::chrono_p2p::GetSnapshotsMessage* get_snapshots) {
   ::PROTOBUF_NAMESPACE_ID::Arena* message_arena = GetArenaForAllocation();
   clear_payload();
@@ -2024,6 +2771,21 @@ void P2PMessage::set_allocated_snapshot_chunk(::chrono_p2p::SnapshotChunkMessage
   }
   // @@protoc_insertion_point(field_set_allocated:chrono_p2p.P2PMessage.snapshot_chunk)
 }
+void P2PMessage::set_allocated_fragment(::chrono_p2p::MessageFragment* fragment) {
+  ::PROTOBUF_NAMESPACE_ID::Arena* message_arena = GetArenaForAllocation();
+  clear_payload();
+  if (fragment) {
+    ::PROTOBUF_NAMESPACE_ID::Arena* submessage_arena =
+      ::PROTOBUF_NAMESPACE_ID::Arena::InternalGetOwningArena(fragment);
+    if (message_arena != submessage_arena) {
+      fragment = ::PROTOBUF_NAMESPACE_ID::internal::GetOwnedMessage(
+          message_arena, fragment, submessage_arena);
+    }
+    set_has_fragment();
+    _impl_.payload_.fragment_ = fragment;
+  }
+  // @@protoc_insertion_point(field_set_allocated:chrono_p2p.P2PMessage.fragment)
+}
 P2PMessage::P2PMessage(::PROTOBUF_NAMESPACE_ID::Arena* arena,
                          bool is_message_owned)
   : ::PROTOBUF_NAMESPACE_ID::Message(arena, is_message_owned) {
@@ -2066,11 +2828,6 @@ P2PMessage::P2PMessage(const P2PMessage& from)
           from._internal_transaction());
       break;
     }
-    case kPeerList: {
-      _this->_internal_mutable_peer_list()->::chrono_p2p::PeerListMessage::MergeFrom(
-          from._internal_peer_list());
-      break;
-    }
     case kPrevote: {
       _this->_internal_mutable_prevote()->::chronos::bft::Prevote::MergeFrom(
           from._internal_prevote());
@@ -2084,6 +2841,16 @@ P2PMessage::P2PMessage(const P2PMessage& from)
     case kNewRound: {
       _this->_internal_mutable_new_round()->::chronos::bft::NewRound::MergeFrom(
           from._internal_new_round());
+      break;
+    }
+    case kGetPeersRequest: {
+      _this->_internal_mutable_get_peers_request()->::chrono_p2p::GetPeersRequest::MergeFrom(
+          from._internal_get_peers_request());
+      break;
+    }
+    case kGetPeersResponse: {
+      _this->_internal_mutable_get_peers_response()->::chrono_p2p::GetPeersResponse::MergeFrom(
+          from._internal_get_peers_response());
       break;
     }
     case kGetSnapshots: {
@@ -2104,6 +2871,11 @@ P2PMessage::P2PMessage(const P2PMessage& from)
     case kSnapshotChunk: {
       _this->_internal_mutable_snapshot_chunk()->::chrono_p2p::SnapshotChunkMessage::MergeFrom(
           from._internal_snapshot_chunk());
+      break;
+    }
+    case kFragment: {
+      _this->_internal_mutable_fragment()->::chrono_p2p::MessageFragment::MergeFrom(
+          from._internal_fragment());
       break;
     }
     case PAYLOAD_NOT_SET: {
@@ -2178,12 +2950,6 @@ void P2PMessage::clear_payload() {
       }
       break;
     }
-    case kPeerList: {
-      if (GetArenaForAllocation() == nullptr) {
-        delete _impl_.payload_.peer_list_;
-      }
-      break;
-    }
     case kPrevote: {
       if (GetArenaForAllocation() == nullptr) {
         delete _impl_.payload_.prevote_;
@@ -2199,6 +2965,18 @@ void P2PMessage::clear_payload() {
     case kNewRound: {
       if (GetArenaForAllocation() == nullptr) {
         delete _impl_.payload_.new_round_;
+      }
+      break;
+    }
+    case kGetPeersRequest: {
+      if (GetArenaForAllocation() == nullptr) {
+        delete _impl_.payload_.get_peers_request_;
+      }
+      break;
+    }
+    case kGetPeersResponse: {
+      if (GetArenaForAllocation() == nullptr) {
+        delete _impl_.payload_.get_peers_response_;
       }
       break;
     }
@@ -2223,6 +3001,12 @@ void P2PMessage::clear_payload() {
     case kSnapshotChunk: {
       if (GetArenaForAllocation() == nullptr) {
         delete _impl_.payload_.snapshot_chunk_;
+      }
+      break;
+    }
+    case kFragment: {
+      if (GetArenaForAllocation() == nullptr) {
+        delete _impl_.payload_.fragment_;
       }
       break;
     }
@@ -2290,14 +3074,6 @@ const char* P2PMessage::_InternalParse(const char* ptr, ::_pbi::ParseContext* ct
         } else
           goto handle_unusual;
         continue;
-      // .chrono_p2p.PeerListMessage peer_list = 6;
-      case 6:
-        if (PROTOBUF_PREDICT_TRUE(static_cast<uint8_t>(tag) == 50)) {
-          ptr = ctx->ParseMessage(_internal_mutable_peer_list(), ptr);
-          CHK_(ptr);
-        } else
-          goto handle_unusual;
-        continue;
       // .chronos.bft.Prevote prevote = 7;
       case 7:
         if (PROTOBUF_PREDICT_TRUE(static_cast<uint8_t>(tag) == 58)) {
@@ -2322,34 +3098,58 @@ const char* P2PMessage::_InternalParse(const char* ptr, ::_pbi::ParseContext* ct
         } else
           goto handle_unusual;
         continue;
-      // .chrono_p2p.GetSnapshotsMessage get_snapshots = 10;
+      // .chrono_p2p.GetPeersRequest get_peers_request = 10;
       case 10:
         if (PROTOBUF_PREDICT_TRUE(static_cast<uint8_t>(tag) == 82)) {
+          ptr = ctx->ParseMessage(_internal_mutable_get_peers_request(), ptr);
+          CHK_(ptr);
+        } else
+          goto handle_unusual;
+        continue;
+      // .chrono_p2p.GetPeersResponse get_peers_response = 11;
+      case 11:
+        if (PROTOBUF_PREDICT_TRUE(static_cast<uint8_t>(tag) == 90)) {
+          ptr = ctx->ParseMessage(_internal_mutable_get_peers_response(), ptr);
+          CHK_(ptr);
+        } else
+          goto handle_unusual;
+        continue;
+      // .chrono_p2p.GetSnapshotsMessage get_snapshots = 12;
+      case 12:
+        if (PROTOBUF_PREDICT_TRUE(static_cast<uint8_t>(tag) == 98)) {
           ptr = ctx->ParseMessage(_internal_mutable_get_snapshots(), ptr);
           CHK_(ptr);
         } else
           goto handle_unusual;
         continue;
-      // .chrono_p2p.SnapshotsAvailableMessage snapshots_available = 11;
-      case 11:
-        if (PROTOBUF_PREDICT_TRUE(static_cast<uint8_t>(tag) == 90)) {
+      // .chrono_p2p.SnapshotsAvailableMessage snapshots_available = 13;
+      case 13:
+        if (PROTOBUF_PREDICT_TRUE(static_cast<uint8_t>(tag) == 106)) {
           ptr = ctx->ParseMessage(_internal_mutable_snapshots_available(), ptr);
           CHK_(ptr);
         } else
           goto handle_unusual;
         continue;
-      // .chrono_p2p.GetSnapshotChunkMessage get_snapshot_chunk = 12;
-      case 12:
-        if (PROTOBUF_PREDICT_TRUE(static_cast<uint8_t>(tag) == 98)) {
+      // .chrono_p2p.GetSnapshotChunkMessage get_snapshot_chunk = 14;
+      case 14:
+        if (PROTOBUF_PREDICT_TRUE(static_cast<uint8_t>(tag) == 114)) {
           ptr = ctx->ParseMessage(_internal_mutable_get_snapshot_chunk(), ptr);
           CHK_(ptr);
         } else
           goto handle_unusual;
         continue;
-      // .chrono_p2p.SnapshotChunkMessage snapshot_chunk = 13;
-      case 13:
-        if (PROTOBUF_PREDICT_TRUE(static_cast<uint8_t>(tag) == 106)) {
+      // .chrono_p2p.SnapshotChunkMessage snapshot_chunk = 15;
+      case 15:
+        if (PROTOBUF_PREDICT_TRUE(static_cast<uint8_t>(tag) == 122)) {
           ptr = ctx->ParseMessage(_internal_mutable_snapshot_chunk(), ptr);
+          CHK_(ptr);
+        } else
+          goto handle_unusual;
+        continue;
+      // .chrono_p2p.MessageFragment fragment = 16;
+      case 16:
+        if (PROTOBUF_PREDICT_TRUE(static_cast<uint8_t>(tag) == 130)) {
+          ptr = ctx->ParseMessage(_internal_mutable_fragment(), ptr);
           CHK_(ptr);
         } else
           goto handle_unusual;
@@ -2418,13 +3218,6 @@ uint8_t* P2PMessage::_InternalSerialize(
         _Internal::transaction(this).GetCachedSize(), target, stream);
   }
 
-  // .chrono_p2p.PeerListMessage peer_list = 6;
-  if (_internal_has_peer_list()) {
-    target = ::PROTOBUF_NAMESPACE_ID::internal::WireFormatLite::
-      InternalWriteMessage(6, _Internal::peer_list(this),
-        _Internal::peer_list(this).GetCachedSize(), target, stream);
-  }
-
   // .chronos.bft.Prevote prevote = 7;
   if (_internal_has_prevote()) {
     target = ::PROTOBUF_NAMESPACE_ID::internal::WireFormatLite::
@@ -2446,32 +3239,53 @@ uint8_t* P2PMessage::_InternalSerialize(
         _Internal::new_round(this).GetCachedSize(), target, stream);
   }
 
-  // .chrono_p2p.GetSnapshotsMessage get_snapshots = 10;
+  // .chrono_p2p.GetPeersRequest get_peers_request = 10;
+  if (_internal_has_get_peers_request()) {
+    target = ::PROTOBUF_NAMESPACE_ID::internal::WireFormatLite::
+      InternalWriteMessage(10, _Internal::get_peers_request(this),
+        _Internal::get_peers_request(this).GetCachedSize(), target, stream);
+  }
+
+  // .chrono_p2p.GetPeersResponse get_peers_response = 11;
+  if (_internal_has_get_peers_response()) {
+    target = ::PROTOBUF_NAMESPACE_ID::internal::WireFormatLite::
+      InternalWriteMessage(11, _Internal::get_peers_response(this),
+        _Internal::get_peers_response(this).GetCachedSize(), target, stream);
+  }
+
+  // .chrono_p2p.GetSnapshotsMessage get_snapshots = 12;
   if (_internal_has_get_snapshots()) {
     target = ::PROTOBUF_NAMESPACE_ID::internal::WireFormatLite::
-      InternalWriteMessage(10, _Internal::get_snapshots(this),
+      InternalWriteMessage(12, _Internal::get_snapshots(this),
         _Internal::get_snapshots(this).GetCachedSize(), target, stream);
   }
 
-  // .chrono_p2p.SnapshotsAvailableMessage snapshots_available = 11;
+  // .chrono_p2p.SnapshotsAvailableMessage snapshots_available = 13;
   if (_internal_has_snapshots_available()) {
     target = ::PROTOBUF_NAMESPACE_ID::internal::WireFormatLite::
-      InternalWriteMessage(11, _Internal::snapshots_available(this),
+      InternalWriteMessage(13, _Internal::snapshots_available(this),
         _Internal::snapshots_available(this).GetCachedSize(), target, stream);
   }
 
-  // .chrono_p2p.GetSnapshotChunkMessage get_snapshot_chunk = 12;
+  // .chrono_p2p.GetSnapshotChunkMessage get_snapshot_chunk = 14;
   if (_internal_has_get_snapshot_chunk()) {
     target = ::PROTOBUF_NAMESPACE_ID::internal::WireFormatLite::
-      InternalWriteMessage(12, _Internal::get_snapshot_chunk(this),
+      InternalWriteMessage(14, _Internal::get_snapshot_chunk(this),
         _Internal::get_snapshot_chunk(this).GetCachedSize(), target, stream);
   }
 
-  // .chrono_p2p.SnapshotChunkMessage snapshot_chunk = 13;
+  // .chrono_p2p.SnapshotChunkMessage snapshot_chunk = 15;
   if (_internal_has_snapshot_chunk()) {
     target = ::PROTOBUF_NAMESPACE_ID::internal::WireFormatLite::
-      InternalWriteMessage(13, _Internal::snapshot_chunk(this),
+      InternalWriteMessage(15, _Internal::snapshot_chunk(this),
         _Internal::snapshot_chunk(this).GetCachedSize(), target, stream);
+  }
+
+  // .chrono_p2p.MessageFragment fragment = 16;
+  if (_internal_has_fragment()) {
+    target = ::PROTOBUF_NAMESPACE_ID::internal::WireFormatLite::
+      InternalWriteMessage(16, _Internal::fragment(this),
+        _Internal::fragment(this).GetCachedSize(), target, stream);
   }
 
   if (PROTOBUF_PREDICT_FALSE(_internal_metadata_.have_unknown_fields())) {
@@ -2526,13 +3340,6 @@ size_t P2PMessage::ByteSizeLong() const {
           *_impl_.payload_.transaction_);
       break;
     }
-    // .chrono_p2p.PeerListMessage peer_list = 6;
-    case kPeerList: {
-      total_size += 1 +
-        ::PROTOBUF_NAMESPACE_ID::internal::WireFormatLite::MessageSize(
-          *_impl_.payload_.peer_list_);
-      break;
-    }
     // .chronos.bft.Prevote prevote = 7;
     case kPrevote: {
       total_size += 1 +
@@ -2554,32 +3361,53 @@ size_t P2PMessage::ByteSizeLong() const {
           *_impl_.payload_.new_round_);
       break;
     }
-    // .chrono_p2p.GetSnapshotsMessage get_snapshots = 10;
+    // .chrono_p2p.GetPeersRequest get_peers_request = 10;
+    case kGetPeersRequest: {
+      total_size += 1 +
+        ::PROTOBUF_NAMESPACE_ID::internal::WireFormatLite::MessageSize(
+          *_impl_.payload_.get_peers_request_);
+      break;
+    }
+    // .chrono_p2p.GetPeersResponse get_peers_response = 11;
+    case kGetPeersResponse: {
+      total_size += 1 +
+        ::PROTOBUF_NAMESPACE_ID::internal::WireFormatLite::MessageSize(
+          *_impl_.payload_.get_peers_response_);
+      break;
+    }
+    // .chrono_p2p.GetSnapshotsMessage get_snapshots = 12;
     case kGetSnapshots: {
       total_size += 1 +
         ::PROTOBUF_NAMESPACE_ID::internal::WireFormatLite::MessageSize(
           *_impl_.payload_.get_snapshots_);
       break;
     }
-    // .chrono_p2p.SnapshotsAvailableMessage snapshots_available = 11;
+    // .chrono_p2p.SnapshotsAvailableMessage snapshots_available = 13;
     case kSnapshotsAvailable: {
       total_size += 1 +
         ::PROTOBUF_NAMESPACE_ID::internal::WireFormatLite::MessageSize(
           *_impl_.payload_.snapshots_available_);
       break;
     }
-    // .chrono_p2p.GetSnapshotChunkMessage get_snapshot_chunk = 12;
+    // .chrono_p2p.GetSnapshotChunkMessage get_snapshot_chunk = 14;
     case kGetSnapshotChunk: {
       total_size += 1 +
         ::PROTOBUF_NAMESPACE_ID::internal::WireFormatLite::MessageSize(
           *_impl_.payload_.get_snapshot_chunk_);
       break;
     }
-    // .chrono_p2p.SnapshotChunkMessage snapshot_chunk = 13;
+    // .chrono_p2p.SnapshotChunkMessage snapshot_chunk = 15;
     case kSnapshotChunk: {
       total_size += 1 +
         ::PROTOBUF_NAMESPACE_ID::internal::WireFormatLite::MessageSize(
           *_impl_.payload_.snapshot_chunk_);
+      break;
+    }
+    // .chrono_p2p.MessageFragment fragment = 16;
+    case kFragment: {
+      total_size += 2 +
+        ::PROTOBUF_NAMESPACE_ID::internal::WireFormatLite::MessageSize(
+          *_impl_.payload_.fragment_);
       break;
     }
     case PAYLOAD_NOT_SET: {
@@ -2630,11 +3458,6 @@ void P2PMessage::MergeImpl(::PROTOBUF_NAMESPACE_ID::Message& to_msg, const ::PRO
           from._internal_transaction());
       break;
     }
-    case kPeerList: {
-      _this->_internal_mutable_peer_list()->::chrono_p2p::PeerListMessage::MergeFrom(
-          from._internal_peer_list());
-      break;
-    }
     case kPrevote: {
       _this->_internal_mutable_prevote()->::chronos::bft::Prevote::MergeFrom(
           from._internal_prevote());
@@ -2648,6 +3471,16 @@ void P2PMessage::MergeImpl(::PROTOBUF_NAMESPACE_ID::Message& to_msg, const ::PRO
     case kNewRound: {
       _this->_internal_mutable_new_round()->::chronos::bft::NewRound::MergeFrom(
           from._internal_new_round());
+      break;
+    }
+    case kGetPeersRequest: {
+      _this->_internal_mutable_get_peers_request()->::chrono_p2p::GetPeersRequest::MergeFrom(
+          from._internal_get_peers_request());
+      break;
+    }
+    case kGetPeersResponse: {
+      _this->_internal_mutable_get_peers_response()->::chrono_p2p::GetPeersResponse::MergeFrom(
+          from._internal_get_peers_response());
       break;
     }
     case kGetSnapshots: {
@@ -2668,6 +3501,11 @@ void P2PMessage::MergeImpl(::PROTOBUF_NAMESPACE_ID::Message& to_msg, const ::PRO
     case kSnapshotChunk: {
       _this->_internal_mutable_snapshot_chunk()->::chrono_p2p::SnapshotChunkMessage::MergeFrom(
           from._internal_snapshot_chunk());
+      break;
+    }
+    case kFragment: {
+      _this->_internal_mutable_fragment()->::chrono_p2p::MessageFragment::MergeFrom(
+          from._internal_fragment());
       break;
     }
     case PAYLOAD_NOT_SET: {
@@ -2698,7 +3536,339 @@ void P2PMessage::InternalSwap(P2PMessage* other) {
 ::PROTOBUF_NAMESPACE_ID::Metadata P2PMessage::GetMetadata() const {
   return ::_pbi::AssignDescriptors(
       &descriptor_table_p2p_5fmessages_2eproto_getter, &descriptor_table_p2p_5fmessages_2eproto_once,
-      file_level_metadata_p2p_5fmessages_2eproto[6]);
+      file_level_metadata_p2p_5fmessages_2eproto[8]);
+}
+
+// ===================================================================
+
+class MessageFragment::_Internal {
+ public:
+};
+
+MessageFragment::MessageFragment(::PROTOBUF_NAMESPACE_ID::Arena* arena,
+                         bool is_message_owned)
+  : ::PROTOBUF_NAMESPACE_ID::Message(arena, is_message_owned) {
+  SharedCtor(arena, is_message_owned);
+  // @@protoc_insertion_point(arena_constructor:chrono_p2p.MessageFragment)
+}
+MessageFragment::MessageFragment(const MessageFragment& from)
+  : ::PROTOBUF_NAMESPACE_ID::Message() {
+  MessageFragment* const _this = this; (void)_this;
+  new (&_impl_) Impl_{
+      decltype(_impl_.message_id_){}
+    , decltype(_impl_.data_){}
+    , decltype(_impl_.fragment_index_){}
+    , decltype(_impl_.total_fragments_){}
+    , decltype(_impl_.original_type_){}
+    , /*decltype(_impl_._cached_size_)*/{}};
+
+  _internal_metadata_.MergeFrom<::PROTOBUF_NAMESPACE_ID::UnknownFieldSet>(from._internal_metadata_);
+  _impl_.message_id_.InitDefault();
+  #ifdef PROTOBUF_FORCE_COPY_DEFAULT_STRING
+    _impl_.message_id_.Set("", GetArenaForAllocation());
+  #endif // PROTOBUF_FORCE_COPY_DEFAULT_STRING
+  if (!from._internal_message_id().empty()) {
+    _this->_impl_.message_id_.Set(from._internal_message_id(), 
+      _this->GetArenaForAllocation());
+  }
+  _impl_.data_.InitDefault();
+  #ifdef PROTOBUF_FORCE_COPY_DEFAULT_STRING
+    _impl_.data_.Set("", GetArenaForAllocation());
+  #endif // PROTOBUF_FORCE_COPY_DEFAULT_STRING
+  if (!from._internal_data().empty()) {
+    _this->_impl_.data_.Set(from._internal_data(), 
+      _this->GetArenaForAllocation());
+  }
+  ::memcpy(&_impl_.fragment_index_, &from._impl_.fragment_index_,
+    static_cast<size_t>(reinterpret_cast<char*>(&_impl_.original_type_) -
+    reinterpret_cast<char*>(&_impl_.fragment_index_)) + sizeof(_impl_.original_type_));
+  // @@protoc_insertion_point(copy_constructor:chrono_p2p.MessageFragment)
+}
+
+inline void MessageFragment::SharedCtor(
+    ::_pb::Arena* arena, bool is_message_owned) {
+  (void)arena;
+  (void)is_message_owned;
+  new (&_impl_) Impl_{
+      decltype(_impl_.message_id_){}
+    , decltype(_impl_.data_){}
+    , decltype(_impl_.fragment_index_){0u}
+    , decltype(_impl_.total_fragments_){0u}
+    , decltype(_impl_.original_type_){0u}
+    , /*decltype(_impl_._cached_size_)*/{}
+  };
+  _impl_.message_id_.InitDefault();
+  #ifdef PROTOBUF_FORCE_COPY_DEFAULT_STRING
+    _impl_.message_id_.Set("", GetArenaForAllocation());
+  #endif // PROTOBUF_FORCE_COPY_DEFAULT_STRING
+  _impl_.data_.InitDefault();
+  #ifdef PROTOBUF_FORCE_COPY_DEFAULT_STRING
+    _impl_.data_.Set("", GetArenaForAllocation());
+  #endif // PROTOBUF_FORCE_COPY_DEFAULT_STRING
+}
+
+MessageFragment::~MessageFragment() {
+  // @@protoc_insertion_point(destructor:chrono_p2p.MessageFragment)
+  if (auto *arena = _internal_metadata_.DeleteReturnArena<::PROTOBUF_NAMESPACE_ID::UnknownFieldSet>()) {
+  (void)arena;
+    return;
+  }
+  SharedDtor();
+}
+
+inline void MessageFragment::SharedDtor() {
+  GOOGLE_DCHECK(GetArenaForAllocation() == nullptr);
+  _impl_.message_id_.Destroy();
+  _impl_.data_.Destroy();
+}
+
+void MessageFragment::SetCachedSize(int size) const {
+  _impl_._cached_size_.Set(size);
+}
+
+void MessageFragment::Clear() {
+// @@protoc_insertion_point(message_clear_start:chrono_p2p.MessageFragment)
+  uint32_t cached_has_bits = 0;
+  // Prevent compiler warnings about cached_has_bits being unused
+  (void) cached_has_bits;
+
+  _impl_.message_id_.ClearToEmpty();
+  _impl_.data_.ClearToEmpty();
+  ::memset(&_impl_.fragment_index_, 0, static_cast<size_t>(
+      reinterpret_cast<char*>(&_impl_.original_type_) -
+      reinterpret_cast<char*>(&_impl_.fragment_index_)) + sizeof(_impl_.original_type_));
+  _internal_metadata_.Clear<::PROTOBUF_NAMESPACE_ID::UnknownFieldSet>();
+}
+
+const char* MessageFragment::_InternalParse(const char* ptr, ::_pbi::ParseContext* ctx) {
+#define CHK_(x) if (PROTOBUF_PREDICT_FALSE(!(x))) goto failure
+  while (!ctx->Done(&ptr)) {
+    uint32_t tag;
+    ptr = ::_pbi::ReadTag(ptr, &tag);
+    switch (tag >> 3) {
+      // string message_id = 1;
+      case 1:
+        if (PROTOBUF_PREDICT_TRUE(static_cast<uint8_t>(tag) == 10)) {
+          auto str = _internal_mutable_message_id();
+          ptr = ::_pbi::InlineGreedyStringParser(str, ptr, ctx);
+          CHK_(ptr);
+          CHK_(::_pbi::VerifyUTF8(str, "chrono_p2p.MessageFragment.message_id"));
+        } else
+          goto handle_unusual;
+        continue;
+      // uint32 fragment_index = 2;
+      case 2:
+        if (PROTOBUF_PREDICT_TRUE(static_cast<uint8_t>(tag) == 16)) {
+          _impl_.fragment_index_ = ::PROTOBUF_NAMESPACE_ID::internal::ReadVarint32(&ptr);
+          CHK_(ptr);
+        } else
+          goto handle_unusual;
+        continue;
+      // uint32 total_fragments = 3;
+      case 3:
+        if (PROTOBUF_PREDICT_TRUE(static_cast<uint8_t>(tag) == 24)) {
+          _impl_.total_fragments_ = ::PROTOBUF_NAMESPACE_ID::internal::ReadVarint32(&ptr);
+          CHK_(ptr);
+        } else
+          goto handle_unusual;
+        continue;
+      // bytes data = 4;
+      case 4:
+        if (PROTOBUF_PREDICT_TRUE(static_cast<uint8_t>(tag) == 34)) {
+          auto str = _internal_mutable_data();
+          ptr = ::_pbi::InlineGreedyStringParser(str, ptr, ctx);
+          CHK_(ptr);
+        } else
+          goto handle_unusual;
+        continue;
+      // uint32 original_type = 5;
+      case 5:
+        if (PROTOBUF_PREDICT_TRUE(static_cast<uint8_t>(tag) == 40)) {
+          _impl_.original_type_ = ::PROTOBUF_NAMESPACE_ID::internal::ReadVarint32(&ptr);
+          CHK_(ptr);
+        } else
+          goto handle_unusual;
+        continue;
+      default:
+        goto handle_unusual;
+    }  // switch
+  handle_unusual:
+    if ((tag == 0) || ((tag & 7) == 4)) {
+      CHK_(ptr);
+      ctx->SetLastTag(tag);
+      goto message_done;
+    }
+    ptr = UnknownFieldParse(
+        tag,
+        _internal_metadata_.mutable_unknown_fields<::PROTOBUF_NAMESPACE_ID::UnknownFieldSet>(),
+        ptr, ctx);
+    CHK_(ptr != nullptr);
+  }  // while
+message_done:
+  return ptr;
+failure:
+  ptr = nullptr;
+  goto message_done;
+#undef CHK_
+}
+
+uint8_t* MessageFragment::_InternalSerialize(
+    uint8_t* target, ::PROTOBUF_NAMESPACE_ID::io::EpsCopyOutputStream* stream) const {
+  // @@protoc_insertion_point(serialize_to_array_start:chrono_p2p.MessageFragment)
+  uint32_t cached_has_bits = 0;
+  (void) cached_has_bits;
+
+  // string message_id = 1;
+  if (!this->_internal_message_id().empty()) {
+    ::PROTOBUF_NAMESPACE_ID::internal::WireFormatLite::VerifyUtf8String(
+      this->_internal_message_id().data(), static_cast<int>(this->_internal_message_id().length()),
+      ::PROTOBUF_NAMESPACE_ID::internal::WireFormatLite::SERIALIZE,
+      "chrono_p2p.MessageFragment.message_id");
+    target = stream->WriteStringMaybeAliased(
+        1, this->_internal_message_id(), target);
+  }
+
+  // uint32 fragment_index = 2;
+  if (this->_internal_fragment_index() != 0) {
+    target = stream->EnsureSpace(target);
+    target = ::_pbi::WireFormatLite::WriteUInt32ToArray(2, this->_internal_fragment_index(), target);
+  }
+
+  // uint32 total_fragments = 3;
+  if (this->_internal_total_fragments() != 0) {
+    target = stream->EnsureSpace(target);
+    target = ::_pbi::WireFormatLite::WriteUInt32ToArray(3, this->_internal_total_fragments(), target);
+  }
+
+  // bytes data = 4;
+  if (!this->_internal_data().empty()) {
+    target = stream->WriteBytesMaybeAliased(
+        4, this->_internal_data(), target);
+  }
+
+  // uint32 original_type = 5;
+  if (this->_internal_original_type() != 0) {
+    target = stream->EnsureSpace(target);
+    target = ::_pbi::WireFormatLite::WriteUInt32ToArray(5, this->_internal_original_type(), target);
+  }
+
+  if (PROTOBUF_PREDICT_FALSE(_internal_metadata_.have_unknown_fields())) {
+    target = ::_pbi::WireFormat::InternalSerializeUnknownFieldsToArray(
+        _internal_metadata_.unknown_fields<::PROTOBUF_NAMESPACE_ID::UnknownFieldSet>(::PROTOBUF_NAMESPACE_ID::UnknownFieldSet::default_instance), target, stream);
+  }
+  // @@protoc_insertion_point(serialize_to_array_end:chrono_p2p.MessageFragment)
+  return target;
+}
+
+size_t MessageFragment::ByteSizeLong() const {
+// @@protoc_insertion_point(message_byte_size_start:chrono_p2p.MessageFragment)
+  size_t total_size = 0;
+
+  uint32_t cached_has_bits = 0;
+  // Prevent compiler warnings about cached_has_bits being unused
+  (void) cached_has_bits;
+
+  // string message_id = 1;
+  if (!this->_internal_message_id().empty()) {
+    total_size += 1 +
+      ::PROTOBUF_NAMESPACE_ID::internal::WireFormatLite::StringSize(
+        this->_internal_message_id());
+  }
+
+  // bytes data = 4;
+  if (!this->_internal_data().empty()) {
+    total_size += 1 +
+      ::PROTOBUF_NAMESPACE_ID::internal::WireFormatLite::BytesSize(
+        this->_internal_data());
+  }
+
+  // uint32 fragment_index = 2;
+  if (this->_internal_fragment_index() != 0) {
+    total_size += ::_pbi::WireFormatLite::UInt32SizePlusOne(this->_internal_fragment_index());
+  }
+
+  // uint32 total_fragments = 3;
+  if (this->_internal_total_fragments() != 0) {
+    total_size += ::_pbi::WireFormatLite::UInt32SizePlusOne(this->_internal_total_fragments());
+  }
+
+  // uint32 original_type = 5;
+  if (this->_internal_original_type() != 0) {
+    total_size += ::_pbi::WireFormatLite::UInt32SizePlusOne(this->_internal_original_type());
+  }
+
+  return MaybeComputeUnknownFieldsSize(total_size, &_impl_._cached_size_);
+}
+
+const ::PROTOBUF_NAMESPACE_ID::Message::ClassData MessageFragment::_class_data_ = {
+    ::PROTOBUF_NAMESPACE_ID::Message::CopyWithSourceCheck,
+    MessageFragment::MergeImpl
+};
+const ::PROTOBUF_NAMESPACE_ID::Message::ClassData*MessageFragment::GetClassData() const { return &_class_data_; }
+
+
+void MessageFragment::MergeImpl(::PROTOBUF_NAMESPACE_ID::Message& to_msg, const ::PROTOBUF_NAMESPACE_ID::Message& from_msg) {
+  auto* const _this = static_cast<MessageFragment*>(&to_msg);
+  auto& from = static_cast<const MessageFragment&>(from_msg);
+  // @@protoc_insertion_point(class_specific_merge_from_start:chrono_p2p.MessageFragment)
+  GOOGLE_DCHECK_NE(&from, _this);
+  uint32_t cached_has_bits = 0;
+  (void) cached_has_bits;
+
+  if (!from._internal_message_id().empty()) {
+    _this->_internal_set_message_id(from._internal_message_id());
+  }
+  if (!from._internal_data().empty()) {
+    _this->_internal_set_data(from._internal_data());
+  }
+  if (from._internal_fragment_index() != 0) {
+    _this->_internal_set_fragment_index(from._internal_fragment_index());
+  }
+  if (from._internal_total_fragments() != 0) {
+    _this->_internal_set_total_fragments(from._internal_total_fragments());
+  }
+  if (from._internal_original_type() != 0) {
+    _this->_internal_set_original_type(from._internal_original_type());
+  }
+  _this->_internal_metadata_.MergeFrom<::PROTOBUF_NAMESPACE_ID::UnknownFieldSet>(from._internal_metadata_);
+}
+
+void MessageFragment::CopyFrom(const MessageFragment& from) {
+// @@protoc_insertion_point(class_specific_copy_from_start:chrono_p2p.MessageFragment)
+  if (&from == this) return;
+  Clear();
+  MergeFrom(from);
+}
+
+bool MessageFragment::IsInitialized() const {
+  return true;
+}
+
+void MessageFragment::InternalSwap(MessageFragment* other) {
+  using std::swap;
+  auto* lhs_arena = GetArenaForAllocation();
+  auto* rhs_arena = other->GetArenaForAllocation();
+  _internal_metadata_.InternalSwap(&other->_internal_metadata_);
+  ::PROTOBUF_NAMESPACE_ID::internal::ArenaStringPtr::InternalSwap(
+      &_impl_.message_id_, lhs_arena,
+      &other->_impl_.message_id_, rhs_arena
+  );
+  ::PROTOBUF_NAMESPACE_ID::internal::ArenaStringPtr::InternalSwap(
+      &_impl_.data_, lhs_arena,
+      &other->_impl_.data_, rhs_arena
+  );
+  ::PROTOBUF_NAMESPACE_ID::internal::memswap<
+      PROTOBUF_FIELD_OFFSET(MessageFragment, _impl_.original_type_)
+      + sizeof(MessageFragment::_impl_.original_type_)
+      - PROTOBUF_FIELD_OFFSET(MessageFragment, _impl_.fragment_index_)>(
+          reinterpret_cast<char*>(&_impl_.fragment_index_),
+          reinterpret_cast<char*>(&other->_impl_.fragment_index_));
+}
+
+::PROTOBUF_NAMESPACE_ID::Metadata MessageFragment::GetMetadata() const {
+  return ::_pbi::AssignDescriptors(
+      &descriptor_table_p2p_5fmessages_2eproto_getter, &descriptor_table_p2p_5fmessages_2eproto_once,
+      file_level_metadata_p2p_5fmessages_2eproto[9]);
 }
 
 // ===================================================================
@@ -2909,7 +4079,7 @@ void GetSnapshotsMessage::InternalSwap(GetSnapshotsMessage* other) {
 ::PROTOBUF_NAMESPACE_ID::Metadata GetSnapshotsMessage::GetMetadata() const {
   return ::_pbi::AssignDescriptors(
       &descriptor_table_p2p_5fmessages_2eproto_getter, &descriptor_table_p2p_5fmessages_2eproto_once,
-      file_level_metadata_p2p_5fmessages_2eproto[7]);
+      file_level_metadata_p2p_5fmessages_2eproto[10]);
 }
 
 // ===================================================================
@@ -3134,7 +4304,7 @@ void SnapshotMetadata::InternalSwap(SnapshotMetadata* other) {
 ::PROTOBUF_NAMESPACE_ID::Metadata SnapshotMetadata::GetMetadata() const {
   return ::_pbi::AssignDescriptors(
       &descriptor_table_p2p_5fmessages_2eproto_getter, &descriptor_table_p2p_5fmessages_2eproto_once,
-      file_level_metadata_p2p_5fmessages_2eproto[8]);
+      file_level_metadata_p2p_5fmessages_2eproto[11]);
 }
 
 // ===================================================================
@@ -3319,7 +4489,7 @@ void SnapshotsAvailableMessage::InternalSwap(SnapshotsAvailableMessage* other) {
 ::PROTOBUF_NAMESPACE_ID::Metadata SnapshotsAvailableMessage::GetMetadata() const {
   return ::_pbi::AssignDescriptors(
       &descriptor_table_p2p_5fmessages_2eproto_getter, &descriptor_table_p2p_5fmessages_2eproto_once,
-      file_level_metadata_p2p_5fmessages_2eproto[9]);
+      file_level_metadata_p2p_5fmessages_2eproto[12]);
 }
 
 // ===================================================================
@@ -3554,7 +4724,7 @@ void GetSnapshotChunkMessage::InternalSwap(GetSnapshotChunkMessage* other) {
 ::PROTOBUF_NAMESPACE_ID::Metadata GetSnapshotChunkMessage::GetMetadata() const {
   return ::_pbi::AssignDescriptors(
       &descriptor_table_p2p_5fmessages_2eproto_getter, &descriptor_table_p2p_5fmessages_2eproto_once,
-      file_level_metadata_p2p_5fmessages_2eproto[10]);
+      file_level_metadata_p2p_5fmessages_2eproto[13]);
 }
 
 // ===================================================================
@@ -3836,7 +5006,7 @@ void SnapshotChunkMessage::InternalSwap(SnapshotChunkMessage* other) {
 ::PROTOBUF_NAMESPACE_ID::Metadata SnapshotChunkMessage::GetMetadata() const {
   return ::_pbi::AssignDescriptors(
       &descriptor_table_p2p_5fmessages_2eproto_getter, &descriptor_table_p2p_5fmessages_2eproto_once,
-      file_level_metadata_p2p_5fmessages_2eproto[11]);
+      file_level_metadata_p2p_5fmessages_2eproto[14]);
 }
 
 // @@protoc_insertion_point(namespace_scope)
@@ -3862,13 +5032,25 @@ template<> PROTOBUF_NOINLINE ::chrono_p2p::TransactionMessage*
 Arena::CreateMaybeMessage< ::chrono_p2p::TransactionMessage >(Arena* arena) {
   return Arena::CreateMessageInternal< ::chrono_p2p::TransactionMessage >(arena);
 }
-template<> PROTOBUF_NOINLINE ::chrono_p2p::PeerListMessage*
-Arena::CreateMaybeMessage< ::chrono_p2p::PeerListMessage >(Arena* arena) {
-  return Arena::CreateMessageInternal< ::chrono_p2p::PeerListMessage >(arena);
+template<> PROTOBUF_NOINLINE ::chrono_p2p::GetPeersRequest*
+Arena::CreateMaybeMessage< ::chrono_p2p::GetPeersRequest >(Arena* arena) {
+  return Arena::CreateMessageInternal< ::chrono_p2p::GetPeersRequest >(arena);
+}
+template<> PROTOBUF_NOINLINE ::chrono_p2p::PeerAddress*
+Arena::CreateMaybeMessage< ::chrono_p2p::PeerAddress >(Arena* arena) {
+  return Arena::CreateMessageInternal< ::chrono_p2p::PeerAddress >(arena);
+}
+template<> PROTOBUF_NOINLINE ::chrono_p2p::GetPeersResponse*
+Arena::CreateMaybeMessage< ::chrono_p2p::GetPeersResponse >(Arena* arena) {
+  return Arena::CreateMessageInternal< ::chrono_p2p::GetPeersResponse >(arena);
 }
 template<> PROTOBUF_NOINLINE ::chrono_p2p::P2PMessage*
 Arena::CreateMaybeMessage< ::chrono_p2p::P2PMessage >(Arena* arena) {
   return Arena::CreateMessageInternal< ::chrono_p2p::P2PMessage >(arena);
+}
+template<> PROTOBUF_NOINLINE ::chrono_p2p::MessageFragment*
+Arena::CreateMaybeMessage< ::chrono_p2p::MessageFragment >(Arena* arena) {
+  return Arena::CreateMessageInternal< ::chrono_p2p::MessageFragment >(arena);
 }
 template<> PROTOBUF_NOINLINE ::chrono_p2p::GetSnapshotsMessage*
 Arena::CreateMaybeMessage< ::chrono_p2p::GetSnapshotsMessage >(Arena* arena) {

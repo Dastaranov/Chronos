@@ -1,0 +1,22 @@
+[
+    {
+        "addresses": [
+            "ChronosNode-9001:9001"
+        ],
+        "is_validated": false,
+        "is_validator": false,
+        "last_seen": 0,
+        "node_id": "ChronosNode-9001",
+        "reputation_score": 0
+    },
+    {
+        "addresses": [
+            "ChronosNode-9002:9002"
+        ],
+        "is_validated": false,
+        "is_validator": false,
+        "last_seen": 0,
+        "node_id": "ChronosNode-9002",
+        "reputation_score": 0
+    }
+]

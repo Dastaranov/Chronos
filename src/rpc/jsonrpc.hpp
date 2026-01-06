@@ -68,10 +68,11 @@ public:
    * It also registers the default set of RPC methods and their handlers.
    *
    * @param port The port number on which the RPC server will listen.
+   * @param api_key Optional API key for authentication.
    * @param state A reference to the `chrono_ledger::State` object that this RPC server will interact with.
    * @param node_app A reference to the main `chrono_node::NodeApp` instance.
    */
-  JsonRpcServer(int port, chrono_ledger::State& state, chrono_node::NodeApp& node_app);
+  JsonRpcServer(int port, const std::string& api_key, chrono_ledger::State& state, chrono_node::NodeApp& node_app);
 
   /**
    * @brief Starts the HTTP server to listen for incoming RPC requests.
@@ -98,6 +99,7 @@ public:
 
 private:
   int port_; ///< @var port_ The port number on which the RPC server listens.
+  std::string api_key_; ///< @var api_key_ The API key for authentication.
   chrono_node::NodeApp& node_app_; ///< @var node_app_ A reference to the main NodeApp instance.
 
   // Handlers
@@ -133,6 +135,17 @@ private:
   nlohmann::json handle_get_transaction(const nlohmann::json& params); // NEW
 
   /**
+   * @brief Handles the "get_nonce" RPC request.
+   *
+   * This method retrieves the current nonce for a specific address from the ledger state.
+   * This is essential for creating valid transactions.
+   *
+   * @param params A JSON object containing the "address" parameter.
+   * @return A JSON object containing the nonce or an error message.
+   */
+  nlohmann::json handle_get_nonce(const nlohmann::json& params);
+
+  /**
    * @brief Handles the "send_transaction" RPC request.
    *
    * This method is responsible for processing requests to submit new transactions
@@ -154,6 +167,36 @@ private:
    * @return A JSON object containing the balance or an error message.
    */
   nlohmann::json handle_get_balance(const nlohmann::json& params);
+
+  /**
+   * @brief Handles the "get_candidates" RPC request.
+   *
+   * This method retrieves the list of validator candidates and their voting status.
+   *
+   * @param params A JSON object (empty).
+   * @return A JSON object containing the list of candidates.
+   */
+  nlohmann::json handle_get_candidates(const nlohmann::json& params);
+  
+  /**
+   * @brief Handles the "get_peers" RPC request.
+   *
+   * This method retrieves the list of currently connected peers with their details.
+   *
+   * @param params A JSON object (empty).
+   * @return A JSON object containing the list of peers.
+   */
+  nlohmann::json handle_get_peers(const nlohmann::json& params);
+
+  /**
+   * @brief Handles the "get_mempool" RPC request.
+   *
+   * This method retrieves the current list of transactions in the mempool.
+   *
+   * @param params A JSON object (empty).
+   * @return A JSON object containing the list of transactions.
+   */
+  nlohmann::json handle_get_mempool(const nlohmann::json& params);
 
   // Mempool access
   /**

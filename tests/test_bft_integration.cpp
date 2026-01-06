@@ -97,7 +97,7 @@ TEST_CASE(ProtobufP2PMessageSerializationDeserialization, "Protobuf P2P Message 
     ASSERT_EQ(original_getblocks->limit(), deserialized_getblocks.limit(), "GetBlocks limit matches");
     
     // BlockMessage
-    chrono_ledger::Block sample_block(Bytes(32, 0xAA), 1, 1000, {});
+    chrono_ledger::Block sample_block(Bytes(32, 0xAA), 1, 1000, 0, {});
     chrono_p2p::P2PMessage original_block_envelope;
     original_block_envelope.mutable_block()->set_block_data(sample_block.serialize().data(), sample_block.serialize().size());
 

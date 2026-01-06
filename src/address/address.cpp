@@ -60,6 +60,24 @@ Address::Address(const Bytes& public_key) {
 }
 
 /**
+ * @brief Constructs an Address from raw address bytes.
+ *
+ * This constructor takes the raw 20-byte address directly. It validates the size
+ * and generates the bech32m string.
+ *
+ * @param bytes The 20-byte raw address.
+ * @param is_raw_bytes Tag to distinguish from public key constructor (value ignored).
+ */
+Address::Address(const Bytes& bytes, bool is_raw_bytes) {
+    (void)is_raw_bytes; // Unused parameter
+    if (bytes.size() != 20) {
+        throw std::invalid_argument("Raw address bytes must be exactly 20 bytes.");
+    }
+    address_bytes = bytes;
+    bech32m_string = bech32m_encode(HRP, address_bytes);
+}
+
+/**
  * @brief Constructs an Address from a bech32m string.
  *
  * This constructor initializes an Address object from a bech32m encoded string. It decodes the string to

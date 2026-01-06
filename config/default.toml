@@ -14,6 +14,17 @@ node_type = "full"
 # The path is relative to the executable's location unless an absolute path is provided.
 data_dir = "data"
 
+# --- Storage Configuration ---
+# This section controls the storage backend for the blockchain data.
+[storage]
+# backend: The storage engine to use.
+# "disk": Simple file-based storage (default).
+# "leveldb": LevelDB key-value store (requires compilation with -DCHRONOS_USE_LEVELDB=ON).
+backend = "disk"
+
+# leveldb_path: Path to the LevelDB database directory (only used if backend = "leveldb").
+leveldb_path = "data/leveldb"
+
 
 # --- Network Configuration ---
 # This section controls how the node connects to and communicates with the P2P network.
@@ -26,9 +37,22 @@ listen_addr = "0.0.0.0"
 # This port must be reachable by other nodes in the network.
 listen_port = 8645
 
+# Bootstrap nodes: well-known nodes for initial discovery
+bootstrap_nodes = [
+    "bootstrap1.chronoschain.io:8645",
+    "bootstrap2.chronoschain.io:8645",
+    "bootstrap3.chronoschain.io:8645"
+]
+
 # seeds: A list of initial peer addresses (IP:port) to connect to when the node starts.
 # This helps the node bootstrap and discover other peers in the network.
 seeds = ["127.0.0.1:8645"]
+
+# Peer discovery settings
+enable_peer_discovery = true
+max_peers = 50
+min_peers = 10
+peer_discovery_interval_ms = 30000  # Query for new peers every 30s
 
 
 # --- RPC (Remote Procedure Call) Server ---
@@ -69,10 +93,30 @@ outlier_mad_factor = 6.0
 # mechanism will attempt to correct.
 min_threshold_ms = 5.0
 
+# min_stake_nanos: Minimum stake required to be a validator.
+min_stake_nanos = 1000000
+
 # validators: A list of public keys (as hex strings) for the nodes authorized to participate in BFT consensus.
 # This list must be identical for all nodes in the network.
 validators = [
     "90946415a42522c0ebc41cec0473c2b39fee79c4ad5477d13959bd7934527e48606d9c2b11ab954172aca3c9dea304db1589462857773022f2acea9bb82f4f4b253b6b304c7089ec948cb475e9fb94be5a7594238976f386471e71afe5074b9019aab5aa93544936e892cc3cb4f5c2f6ae6d8cb34bb165ab34efb08ad354508138d7f2bbf1581ebf33aa6a3521560f686edf1f3cdb1aac39b820efffb10fef1ba137847b5490a796d4955304344252b123509300efda36b4a8834591d42a8242ae4d7a8240e9420e28729b56df2d27b7aa30da4d8c657b09e5b7f9811c4caa92ae3d1cd69cee27749563d3be6650c3ba7718699126a0c7542dab515c1b96a14fc18a90a97c74552910933ff8df36f4aa12bfe629bdc7521eb549a10fd70b5e1470be8707cd3710dd8b7818a07eeb13facb6b1049f91e3d51037ecf26a8250f233ac53af9a7a8b4748698617db8a6fac291ac916b3696d246cf9c07f86e467a09f3473a2bf6166dfc501f819a9ddd4d518e79241daa9af4d690a3ff222c0da48eebfb8c24aa1c455ad6ff6dbf82f8fcd778111d38d01cae8286e7a32696c195849534816e9779d7ae31147b0a21abcda4492c0913176d610813fec34a236fb551d62981567a26f8949bc592279de48d6758e1384a5714c92c5f07a53c018d9b952660f9372baac0d4db15493493a1b516686759b19205e20a7b77ebdd40849bc0b5029a31cb87c562baaad4086781b9699a6135f1089e352d2bff05c22c81d25529015930fc30ae7941fc86beaf8147e064f7a846a7c611024587c0c2e8e289e3d6b987fc8cc244cd3d1db365d9f44a0968a1cd4e790a4382e3827bad6d859936b0908bf6b87bc3b632930953a43e1dac96f7f84309c1178225e7777c4cfc00c2ec8f7ee646e95be7e9f0ea95d84a499cd68df58e56e692c0c583f1921150ebb7ce9a61964cf9e4136c6734d94b2c027b4c229f9e69c1237263a4a5899ce42fb515c944443bbcd693b87b0335f8c8f8a6e2ab32dbc4be6ff3d272c2eb462281d15e639802c76820c8569c6b001d63d002f243658d397416518337e14e2e8e3f349f01444ff850ba7ce5826b197ab4dbace65abf9a8e63149a3d1bdadba191968a86498c17ad9cf3afb7c66de7832b9a23fab0ecfbf68aeb9268d390ecbba2b6238e75216aa510b5e6273b0f67f4f5ff536e6c579602cbcf8676d7c43f43f5222507715783bc83525ca8e84e53e932003215805b869f9071e5f3e373785b3eef52815f2de95bf4a92d1f3d182ec66cf3acea1239fb88488875590b0915b203ed77c0df67a21c65dcd9674ac34b68e106365baa581d5a784ec48e0a0b93fa16aa742fc667fc981dc8bc3dde865572802a1499b0d7eb529fa30f40a3f34e2b2f36bc5188567b1407bea8dd79b9221ef249793ba1c92ef9178d3bad78dbb3a508868b1f691540e1208e2d8c81156bd13df31ed8ff6cc1dc5827472e79b420a26b1e36dba1cbc3230d5d29320fbdebf6c0a3908898a43c0b28d201e4717235c6c812d7f73ef71a0a3d8756e6dad2d3eaf32aa3ec6cf50dc028e3e7c0940f3978b485115f03981a72d1f108f9adb320740809003445ae329635b92df152220edee6f10ea4135cf337db6025a74ec936d447cdd56e8d21d73d85c6311f87eacf777411d7e925c2a82e3518bbc547e00dac5674fb584cd0f59bb13a88729af0f751dfda63bee2751791aab03e6f35811f62ac81509a1ed309d4a459532e4b1734f8f6d63d44bd046f049a4ff75cf62cb1eedfea286fea13901d49ef329544034767fe8bb93a03654082c7e5dbd2e012da387f73ad567d7b8197d1bd24a8f21e4df486adccaf0f6d4fcd8492b6e3b5fc1768b0b741a108d9c021fc74ffb7c71bb43e064502c58b3627c5eada466eadece8cd5b8499f207844c1ee063ba993b873cccc2e07c1a35d4ea9a60cfc31d11cdd5410c9fe02622c6548edea60c8dd6f5500c3b5a8a13e410d53578d130150e5e2e3414abd3624b2f97cacc45f2ff54745517dd23a90018ab3e9afc666c3c1a7cbaaadca497fdd00beb545bca59a8afc29a65bae166461f7ea47c4c1ef3305f220eb5296e683f571ded4d3826b9acbf706ed868c56f181aadeb1dd844a16a3524ce58aa152b1bba6bc6ebf690986cda93e844ac046fb2e09602f84404653e35edabffcb5b26061cd42556d0b06818466913d6a6897eb45e605e111b354e30cfd5bfa90b78ae13f79b3d21f4cb341dc43be0b15d74e86d778178ba1a6b85db4b0bfdbe49e531139e8be65bbad16933513ececdd8cb0c400dd967455e72370584790963c2df129351942bf7aff7b364ec424d72648304be927a58bffdcba8f87539e34ecfacd7d1295e7e4be0b8304cdab4499e9ea3106d469c452fd49baf1da52c3c767a0c66075343539c0b9b102d0387f3938f6af6d83e5bd9a2e9b4647a7d1dff91f7d75615b9840ccae89101cc5e7f584ff2fe9641b9cdf6b0832485e3db36f646128b6befed009716c5dbf50541bcda7e4c64a3d70086fff00cd8c3ab44d64b6be33b4a27d493d25e5c3e43b944da108948b0a2f4c56f4071fda3eeae79525e5416dd24846ef2e09863acce6e050e60ba9bf90299fcf083f618b7bb81738f001aaca54dc2d8c380d330b794125f0a23879454cea395613cd879fd10058594422327babe07a435fbe77be02722315dc759732cc0815b327ff967bcc54ddd7b07990fb132faee134e6cca37a5a1e31a4ccc0bf143"
+]
+
+
+# --- Secure Time Synchronization ---
+# Configuration for authenticated time synchronization (NTS).
+[secure_time]
+enable_nts = true
+max_skew_ms = 1000  # Reject samples with > 1s skew
+query_interval_ms = 10000
+min_nts_quorum = 2  # Require at least 2 authenticated sources
+
+# NTS-enabled servers (prioritized)
+nts_servers = [
+    "time.cloudflare.com",
+    "nts.netnod.se",
+    "ptbtim1.ptb.de",
+    "1.ntp.ubuntu.com"
 ]
 
 
@@ -128,15 +172,19 @@ consensus_time = 0
 # expected_hash: The expected hash of the genesis block (hex-encoded).
 # Used to validate that all nodes start with the same genesis state.
 # Leave empty to skip validation (useful during development).
+# On first run, the node will log the generated genesis hash. You can copy it here.
 expected_hash = ""
 
 # max_supply_per_account: Maximum balance allowed per account (overflow protection).
 # Prevents balance arithmetic overflows and ensures economic constraints.
 max_supply_per_account = 1000000000000000
 
-# allocations: Initial balance allocations at genesis.
-# Format: "address" = balance_in_nanos
-# These accounts will have the specified balances when the blockchain starts.
+# allocations: Initial token distribution at genesis.
+# Format: Table with "address" = balance_in_nanos
+# Example:
+# [genesis.allocations]
+# "cqc1qru6j2c93t8k6l3x5x6y6z6j6" = 1000000000  # 1 CHRONOS
 [genesis.allocations]
-# Example: "cqc1validatoraddr123" = 1000000000
-# Add your genesis allocations here
+# Foundation / Treasury (Example)
+# "cqc1..." = 3155692000000000
+

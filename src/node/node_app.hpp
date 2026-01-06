@@ -13,6 +13,7 @@
  */
 #pragma once
 
+#include <atomic>
 #include <memory>
 #include <unordered_map>
 #include <vector>
@@ -29,10 +30,16 @@
 #include "consensus/pot_aggregator.hpp"
 // #include "consensus/bft.hpp" // Now using unique_ptr, so forward declaration is enough
 #include "consensus/external_time_source_manager.hpp" // NEW: Include ExternalTimeSourceManager header
+#include "ledger/node_registry.hpp" // NEW: NodeRegistry
+#include "p2p/peer_store.hpp" // NEW: PeerStore
+#include "p2p/discovery_manager.hpp" // NEW: DiscoveryManager
+#include "p2p/fragmentation.hpp" // NEW: FragmentationManager
 
 // Forward declarations to reduce include dependencies and compilation time.
 namespace chrono_p2p {
 class SocketTransport;
+class PeerStore; // Forward declaration
+class DiscoveryManager; // Forward declaration
 }
 
 namespace chrono_crypto {
@@ -107,6 +114,8 @@ inline constexpr uint64_t MIN_FEE = 1;  // Minimum 1 unit fee per transaction
  */
 class NodeApp {
 public:
+  friend class JsonRpcServer;
+
   /**
    * @brief Constructs the NodeApp with a given configuration.
    * @param cfg The node's configuration settings.
@@ -125,6 +134,11 @@ public:
    * consensus and peer management loop.
    */
   void run();
+
+  /**
+   * @brief Stops the main execution loop.
+   */
+  void stop();
 
   /**
    * @brief Adds a new block to the blockchain.
@@ -156,11 +170,27 @@ public:
   void publish_transaction(const chrono_ledger::Transaction& tx);
 
   /**
+   * @brief Provides access to the ledger state.
+   * @return A reference to the State object.
+   */
+  chrono_ledger::State& getState() {
+      return state_;
+  }
+
+  /**
    * @brief Provides access to the blockchain storage interface.
    * @return A pointer to the `IBlockchainStorage` instance.
    */
   chrono_storage::IBlockchainStorage* getBlockchainStorage() const {
       return blockchain_storage_.get();
+  }
+
+  /**
+   * @brief Provides access to the node registry.
+   * @return A reference to the NodeRegistry.
+   */
+  chrono_ledger::NodeRegistry& get_node_registry() {
+      return node_registry_;
   }
 
   /**
@@ -173,6 +203,7 @@ public:
    */
   std::vector<chrono_ledger::Transaction> get_mempool_const() const {
       std::lock_guard<std::mutex> lock(mempool_mutex_);
+      // LOG_DEBUG(chrono_util::LogCategory::GENERAL, "get_mempool_const called, size: {}", mempool_.size());
       return mempool_;
   }
 
@@ -197,6 +228,12 @@ public:
    */
   void start_from_snapshot(const chrono_storage::SnapshotData& snapshot_data);
 
+  /**
+   * @brief Checks if the node is currently syncing.
+   * @return True if syncing, false otherwise.
+   */
+  bool is_syncing() const { return is_syncing_; }
+
   // Constants for message validation (public for testing)
   static constexpr size_t MAX_MESSAGE_SIZE = 10 * 1024 * 1024;  ///< 10MB max message size
   static constexpr size_t MAX_BLOCK_SIZE = 5 * 1024 * 1024;     ///< 5MB max block size
@@ -206,6 +243,7 @@ public:
   static constexpr size_t MIN_NODE_ID_LENGTH = 10;              ///< Minimum reasonable node ID length
   static constexpr size_t MAX_NODE_ID_LENGTH = 256;             ///< Maximum reasonable node ID length
   static constexpr uint32_t MAX_PORT_NUMBER = 65535;            ///< Maximum valid TCP port number
+  static constexpr size_t MAX_MEMPOOL_SIZE = 50000;             ///< Max transactions in mempool to prevent DoS
 
   /**
    * @brief Validates a HandshakeMessage for required fields and value ranges.
@@ -240,6 +278,12 @@ public:
    */
   bool validate_get_blocks_message(const chrono_p2p::GetBlocksMessage& msg, const std::string& sender_id) const;
 
+  /**
+   * @brief Sets the time tier for testing purposes.
+   * @param tier The tier to set.
+   */
+  void set_time_tier_for_testing(uint32_t tier);
+
 private:
   /**
    * @brief Handles incoming messages from the P2P network.
@@ -259,8 +303,9 @@ private:
    * (height and last block hash) with a peer, initiating the connection and synchronization process.
    *
    * @param peer_addr The network address of the peer to send the handshake to.
+   * @param target_peer_id Optional ID of the peer to send directly to.
    */
-  void send_handshake(const std::string& peer_addr);
+  void send_handshake(const std::string& peer_addr, const std::string& target_peer_id = "");
 
   /**
    * @brief Broadcasts a request for a specific block from the network.
@@ -330,11 +375,13 @@ private:
    * @param round Consensus round number.
    * @param block_hash Block hash being voted on.
    * @param validator_id ID of validator sending message.
+   * @param time_tier Time Tier of the validator (1-5).
    * @return Blake3 hash of the message content (32 bytes).
    */
   chrono_util::Bytes compute_bft_message_hash(uint64_t height, uint32_t round, 
                                                const chrono_util::Bytes& block_hash, 
-                                               const std::string& validator_id) const;
+                                               const std::string& validator_id,
+                                               uint32_t time_tier) const;
 
   /**
    * @brief Verifies signature on a BFT message.
@@ -365,7 +412,17 @@ private:
 
   // P2P networking components
   std::unique_ptr<chrono_p2p::SocketTransport> transport_; ///< @var The underlying network transport layer.
-  std::unique_ptr<chrono_p2p::Gossip> gossip_;           ///< @var The gossip protocol manager for P2P communication.
+  std::shared_ptr<chrono_p2p::Gossip> gossip_;           ///< @var The gossip protocol manager for P2P communication.
+  std::shared_ptr<chrono_p2p::PeerStore> peer_store_;    ///< @var Persistent store for known peers.
+  std::shared_ptr<chrono_p2p::DiscoveryManager> discovery_manager_; ///< @var Manages peer discovery.
+  chrono_p2p::FragmentationManager fragmentation_manager_; ///< @var Manages message fragmentation.
+
+  /**
+   * @brief Broadcasts a message to the network, fragmenting it if necessary.
+   * @param topic The gossip topic to publish to.
+   * @param msg The message to broadcast.
+   */
+  void broadcast_message(const std::string& topic, const chrono_p2p::P2PMessage& msg);
 
   // Cryptography
   std::unique_ptr<chrono_crypto::ISigner> signer_; ///< @var The cryptographic signer for creating signatures.
@@ -379,6 +436,7 @@ private:
   // Consensus mechanisms
   chrono_consensus::PoTAggregator pot_; ///< @var The Proof-of-Time aggregator.
   std::unique_ptr<chrono_consensus::BftGadget> bft_;       ///< @var The BFT consensus engine. (Now unique_ptr)
+  chrono_ledger::NodeRegistry node_registry_; ///< @var Registry for node identity and staking.
 
   // External Time Source Management
   std::unique_ptr<chrono_consensus::ExternalTimeSourceManager> external_time_manager_; ///< @var Manages external time sources for PoT.
@@ -391,6 +449,12 @@ private:
 
   // Mutexes for thread-safe access to shared data
   mutable std::mutex mempool_mutex_;         ///< @var Protects access to mempool_.
+
+  // Pending blocks that arrived before their round started
+  // Key: {height, round}
+  std::map<std::pair<uint64_t, uint32_t>, chrono_ledger::Block> pending_blocks_;
+  std::mutex pending_blocks_mutex_;
+
   mutable std::mutex peers_mutex_;           ///< @var Protects access to connected_peers_.
   mutable std::mutex blockchain_state_mutex_; ///< @var Protects access to last_block_hash_ and next_block_height_.
 
@@ -401,6 +465,7 @@ private:
   std::chrono::milliseconds peer_management_interval_ms_ = std::chrono::seconds(60);   ///< @var How often to run peer management.
   std::chrono::steady_clock::time_point last_snapshot_discovery_time_;     ///< @var Timestamp of the last snapshot discovery query.
   std::chrono::milliseconds snapshot_discovery_interval_ms_ = std::chrono::seconds(120); ///< @var How often to query for available snapshots.
+  std::chrono::steady_clock::time_point last_consensus_progress_; ///< @var Last time consensus made progress.
 
 
   // Blockchain state trackers
@@ -416,7 +481,9 @@ private:
   uint64_t calculate_block_reward(uint64_t height) const;
 
   // Network synchronization state
+  std::atomic<bool> running_{false};     ///< @var Flag to control the main loop execution.
   bool is_syncing_ = false;              ///< @var True if node is currently syncing blocks from peers.
+  bool is_degraded_mode_ = false;        ///< @var True if node is in degraded light sync mode.
   std::string sync_peer_id_;              ///< @var ID of peer we're currently syncing from.
   uint64_t sync_target_height_ = 0;       ///< @var Target height to sync to.
   uint64_t sync_downloaded_blocks_ = 0;   ///< @var Number of blocks downloaded in current sync session.
@@ -424,6 +491,18 @@ private:
   std::chrono::steady_clock::time_point last_sync_progress_time_; ///< @var Last time we received a block during sync.
   static constexpr int SYNC_TIMEOUT_SECONDS = 30; ///< @var Timeout for sync progress (switch peer if no progress).
   static constexpr int SYNC_BATCH_SIZE = 10;      ///< @var Number of blocks to request per batch.
+
+  struct SnapshotDownloadState {
+      uint64_t height;
+      std::vector<uint8_t> data;
+      uint64_t next_chunk_index;
+  };
+  std::optional<SnapshotDownloadState> snapshot_download_state_;
+
+  /**
+   * @brief Switches the node to degraded light sync mode.
+   */
+  void degrade_to_light_sync();
 
   // Peer management
   std::unordered_map<std::string, PeerInfo> connected_peers_; ///< @var A map of connected peers, keyed by their node ID.

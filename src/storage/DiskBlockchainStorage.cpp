@@ -23,7 +23,7 @@ DiskBlockchainStorage::DiskBlockchainStorage(std::unique_ptr<IKv> kv_store)
     LOG_INFO(chrono_util::LogCategory::STORAGE, "DiskBlockchainStorage initialized.");
 }
 
-void DiskBlockchainStorage::saveBlock(const chrono_ledger::Block& block) {
+bool DiskBlockchainStorage::saveBlock(const chrono_ledger::Block& block) {
     chrono_util::Bytes block_hash = block.get_header_hash();
     chrono_util::Bytes serialized_block = block.serialize();
     kv_store_->put(block_hash, serialized_block);
@@ -37,6 +37,7 @@ void DiskBlockchainStorage::saveBlock(const chrono_ledger::Block& block) {
     kv_store_->put(height_key, block_hash);
 
     LOG_INFO(chrono_util::LogCategory::STORAGE, "Block saved: {} at height {}", chrono_util::bytes_to_hex(block_hash), block.height);
+    return true;
 }
 
 std::optional<chrono_ledger::Block> DiskBlockchainStorage::getBlock(const chrono_util::Bytes& block_hash) const {
@@ -53,9 +54,10 @@ std::optional<chrono_ledger::Block> DiskBlockchainStorage::getBlock(const chrono
     return std::nullopt;
 }
 
-void DiskBlockchainStorage::saveMetadata(const chrono_util::Bytes& key, const chrono_util::Bytes& value) {
+bool DiskBlockchainStorage::saveMetadata(const chrono_util::Bytes& key, const chrono_util::Bytes& value) {
     kv_store_->put(key, value);
     LOG_INFO(chrono_util::LogCategory::STORAGE, "Metadata saved: {}", chrono_util::bytes_to_hex(key));
+    return true;
 }
 
 std::optional<chrono_util::Bytes> DiskBlockchainStorage::getMetadata(const chrono_util::Bytes& key) const {
@@ -75,6 +77,10 @@ std::optional<chrono_ledger::Block> DiskBlockchainStorage::getBlock(uint64_t hei
         return getBlock(*block_hash_data); // Use the existing getBlock by hash method
     }
     return std::nullopt;
+}
+
+bool DiskBlockchainStorage::hasBlock(const chrono_util::Bytes& hash) const {
+    return kv_store_->get(hash).has_value();
 }
 
 } // namespace chrono_storage

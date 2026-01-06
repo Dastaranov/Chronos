@@ -65,6 +65,30 @@ public:
      */
     std::optional<SnapshotData> restoreSnapshot(uint64_t height);
 
+    /**
+     * @brief Retrieves a specific chunk of a snapshot.
+     * 
+     * @param height The snapshot height.
+     * @param chunk_index The index of the chunk (0-based).
+     * @param chunk_size The size of chunks in bytes.
+     * @return The chunk data bytes, or empty if not found/out of bounds.
+     */
+    chrono_util::Bytes getSnapshotChunk(uint64_t height, uint64_t chunk_index, uint64_t chunk_size);
+
+    /**
+     * @brief Gets the total size of a snapshot in bytes.
+     * @param height The snapshot height.
+     * @return The size in bytes, or 0 if not found.
+     */
+    uint64_t getSnapshotSize(uint64_t height);
+
+    /**
+     * @brief Restores state from raw snapshot bytes (reassembled from chunks).
+     * @param data The complete raw snapshot data.
+     * @return An optional `SnapshotData` object if successful.
+     */
+    std::optional<SnapshotData> restoreFromBytes(const chrono_util::Bytes& data);
+
 private:
     std::unique_ptr<IKv> kv_store_; ///< @var kv_store_ The underlying key-value store for snapshot persistence.
 };

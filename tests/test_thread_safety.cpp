@@ -67,7 +67,7 @@ TEST_CASE(MempoolConcurrentAccess, "Mempool Concurrent Access") {
         chrono_address::Address from_addr(signer.get_public_key());
         chrono_address::Address to_addr(signer_to.get_public_key());
         
-        chrono_ledger::Transaction tx(from_addr, to_addr, 100 + id, 10, id);
+        chrono_ledger::Transaction tx(from_addr, to_addr, 100 + id, 10, id, signer.get_public_key());
         tx.signature = signer.sign(tx.get_hash_for_signing());
         return tx;
     };
@@ -299,7 +299,7 @@ TEST_CASE(ConcurrentAccessStress, "Concurrent Access Stress Test") {
     auto mempool_writer = [&]() {
         int counter = 0;
         while (!stop_flag) {
-            chrono_ledger::Transaction tx(from_addr, to_addr, 100 + counter, 10, counter);
+            chrono_ledger::Transaction tx(from_addr, to_addr, 100 + counter, 10, counter, signer.get_public_key());
             // Set signature for the transaction
             tx.signature = signer.sign(tx.get_hash_for_signing());
             

@@ -15,7 +15,7 @@
 chrono_ledger::Block create_dummy_block(const chrono_util::Bytes& prev_hash, uint64_t height) {
     std::vector<chrono_ledger::Transaction> txs;
     // Add some dummy transactions if needed for more realistic blocks
-    return chrono_ledger::Block(prev_hash, height, 0, txs); // NEW: Add consensus_time = 0
+    return chrono_ledger::Block(prev_hash, height, 0, 0, txs); // NEW: Add consensus_time = 0, round = 0
 }
 
 // Helper to check if a file exists

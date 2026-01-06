@@ -350,6 +350,7 @@ class Prevote final :
     kSignatureFieldNumber = 5,
     kHeightFieldNumber = 1,
     kRoundFieldNumber = 2,
+    kTimeTierFieldNumber = 6,
   };
   // bytes block_hash = 3;
   void clear_block_hash();
@@ -415,6 +416,15 @@ class Prevote final :
   void _internal_set_round(uint32_t value);
   public:
 
+  // uint32 time_tier = 6;
+  void clear_time_tier();
+  uint32_t time_tier() const;
+  void set_time_tier(uint32_t value);
+  private:
+  uint32_t _internal_time_tier() const;
+  void _internal_set_time_tier(uint32_t value);
+  public:
+
   // @@protoc_insertion_point(class_scope:chronos.bft.Prevote)
  private:
   class _Internal;
@@ -428,6 +438,7 @@ class Prevote final :
     ::chronos::bft::SignatureProto* signature_;
     uint64_t height_;
     uint32_t round_;
+    uint32_t time_tier_;
     mutable ::PROTOBUF_NAMESPACE_ID::internal::CachedSize _cached_size_;
   };
   union { Impl_ _impl_; };
@@ -561,6 +572,7 @@ class Precommit final :
     kSignatureFieldNumber = 5,
     kHeightFieldNumber = 1,
     kRoundFieldNumber = 2,
+    kTimeTierFieldNumber = 6,
   };
   // bytes block_hash = 3;
   void clear_block_hash();
@@ -626,6 +638,15 @@ class Precommit final :
   void _internal_set_round(uint32_t value);
   public:
 
+  // uint32 time_tier = 6;
+  void clear_time_tier();
+  uint32_t time_tier() const;
+  void set_time_tier(uint32_t value);
+  private:
+  uint32_t _internal_time_tier() const;
+  void _internal_set_time_tier(uint32_t value);
+  public:
+
   // @@protoc_insertion_point(class_scope:chronos.bft.Precommit)
  private:
   class _Internal;
@@ -639,6 +660,7 @@ class Precommit final :
     ::chronos::bft::SignatureProto* signature_;
     uint64_t height_;
     uint32_t round_;
+    uint32_t time_tier_;
     mutable ::PROTOBUF_NAMESPACE_ID::internal::CachedSize _cached_size_;
   };
   union { Impl_ _impl_; };
@@ -772,6 +794,7 @@ class NewRound final :
     kSignatureFieldNumber = 5,
     kHeightFieldNumber = 1,
     kRoundFieldNumber = 2,
+    kTimeTierFieldNumber = 6,
   };
   // bytes proposal_block_hash = 3;
   void clear_proposal_block_hash();
@@ -837,6 +860,15 @@ class NewRound final :
   void _internal_set_round(uint32_t value);
   public:
 
+  // uint32 time_tier = 6;
+  void clear_time_tier();
+  uint32_t time_tier() const;
+  void set_time_tier(uint32_t value);
+  private:
+  uint32_t _internal_time_tier() const;
+  void _internal_set_time_tier(uint32_t value);
+  public:
+
   // @@protoc_insertion_point(class_scope:chronos.bft.NewRound)
  private:
   class _Internal;
@@ -850,6 +882,7 @@ class NewRound final :
     ::chronos::bft::SignatureProto* signature_;
     uint64_t height_;
     uint32_t round_;
+    uint32_t time_tier_;
     mutable ::PROTOBUF_NAMESPACE_ID::internal::CachedSize _cached_size_;
   };
   union { Impl_ _impl_; };
@@ -1150,6 +1183,26 @@ inline void Prevote::set_allocated_signature(::chronos::bft::SignatureProto* sig
   // @@protoc_insertion_point(field_set_allocated:chronos.bft.Prevote.signature)
 }
 
+// uint32 time_tier = 6;
+inline void Prevote::clear_time_tier() {
+  _impl_.time_tier_ = 0u;
+}
+inline uint32_t Prevote::_internal_time_tier() const {
+  return _impl_.time_tier_;
+}
+inline uint32_t Prevote::time_tier() const {
+  // @@protoc_insertion_point(field_get:chronos.bft.Prevote.time_tier)
+  return _internal_time_tier();
+}
+inline void Prevote::_internal_set_time_tier(uint32_t value) {
+  
+  _impl_.time_tier_ = value;
+}
+inline void Prevote::set_time_tier(uint32_t value) {
+  _internal_set_time_tier(value);
+  // @@protoc_insertion_point(field_set:chronos.bft.Prevote.time_tier)
+}
+
 // -------------------------------------------------------------------
 
 // Precommit
@@ -1384,6 +1437,26 @@ inline void Precommit::set_allocated_signature(::chronos::bft::SignatureProto* s
   // @@protoc_insertion_point(field_set_allocated:chronos.bft.Precommit.signature)
 }
 
+// uint32 time_tier = 6;
+inline void Precommit::clear_time_tier() {
+  _impl_.time_tier_ = 0u;
+}
+inline uint32_t Precommit::_internal_time_tier() const {
+  return _impl_.time_tier_;
+}
+inline uint32_t Precommit::time_tier() const {
+  // @@protoc_insertion_point(field_get:chronos.bft.Precommit.time_tier)
+  return _internal_time_tier();
+}
+inline void Precommit::_internal_set_time_tier(uint32_t value) {
+  
+  _impl_.time_tier_ = value;
+}
+inline void Precommit::set_time_tier(uint32_t value) {
+  _internal_set_time_tier(value);
+  // @@protoc_insertion_point(field_set:chronos.bft.Precommit.time_tier)
+}
+
 // -------------------------------------------------------------------
 
 // NewRound
@@ -1616,6 +1689,26 @@ inline void NewRound::set_allocated_signature(::chronos::bft::SignatureProto* si
   }
   _impl_.signature_ = signature;
   // @@protoc_insertion_point(field_set_allocated:chronos.bft.NewRound.signature)
+}
+
+// uint32 time_tier = 6;
+inline void NewRound::clear_time_tier() {
+  _impl_.time_tier_ = 0u;
+}
+inline uint32_t NewRound::_internal_time_tier() const {
+  return _impl_.time_tier_;
+}
+inline uint32_t NewRound::time_tier() const {
+  // @@protoc_insertion_point(field_get:chronos.bft.NewRound.time_tier)
+  return _internal_time_tier();
+}
+inline void NewRound::_internal_set_time_tier(uint32_t value) {
+  
+  _impl_.time_tier_ = value;
+}
+inline void NewRound::set_time_tier(uint32_t value) {
+  _internal_set_time_tier(value);
+  // @@protoc_insertion_point(field_set:chronos.bft.NewRound.time_tier)
 }
 
 #ifdef __GNUC__

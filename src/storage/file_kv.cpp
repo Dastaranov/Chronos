@@ -43,6 +43,13 @@ namespace chrono_storage {
 FileKv::FileKv(const std::string& file_path) : file_path_(file_path) {
     // Ensure the file exists by opening it in append mode, which creates it if it doesn't.
     std::ofstream ofs(file_path_, std::ios::app);
+    ofs.close();
+
+    // Load existing data into cache
+    auto all_data = read_all();
+    for (const auto& pair : all_data) {
+        cache_[pair.first] = pair.second;
+    }
 }
 
 /**
@@ -98,22 +105,31 @@ void FileKv::rewrite_file(const std::vector<std::pair<chrono_util::Bytes, chrono
 }
 
 /**
+ * @brief Appends a key-value pair to the file.
+ *
+ * @param key The key.
+ * @param value The value.
+ */
+void FileKv::append_to_file(const chrono_util::Bytes& key, const chrono_util::Bytes& value) {
+    std::ofstream ofs(file_path_, std::ios::app);
+    ofs << chrono_util::bytes_to_hex(key) << " " << chrono_util::bytes_to_hex(value) << std::endl;
+}
+
+/**
  * @brief Retrieves the value associated with a given key.
  *
- * This method reads all key-value pairs from the file and searches for the specified key.
- * It uses a `std::lock_guard` to ensure thread-safe access to the file during the read operation.
+ * This method checks the in-memory cache for the key.
+ * It uses a `std::lock_guard` to ensure thread-safe access.
  *
  * @param key The `chrono_util::Bytes` object representing the key to search for.
  * @return An `std::optional<chrono_util::Bytes>` containing the value if the key is found,
  *         otherwise `std::nullopt`.
  */
 std::optional<chrono_util::Bytes> FileKv::get(const chrono_util::Bytes& key) const {
-    std::lock_guard<std::mutex> lock(mutex_); // Protect against concurrent writes
-    auto all_data = read_all();
-    for (const auto& pair : all_data) {
-        if (pair.first == key) {
-            return pair.second;
-        }
+    std::lock_guard<std::mutex> lock(mutex_); // Protect against concurrent access
+    auto it = cache_.find(key);
+    if (it != cache_.end()) {
+        return it->second;
     }
     return std::nullopt;
 }
@@ -121,8 +137,8 @@ std::optional<chrono_util::Bytes> FileKv::get(const chrono_util::Bytes& key) con
 /**
  * @brief Inserts a new key-value pair or updates an existing one.
  *
- * If the key already exists in the store, its corresponding value is updated.
- * If the key does not exist, a new key-value pair is added.
+ * Updates the in-memory cache and appends the new value to the file.
+ * Triggers a file rewrite (compaction) if the append count exceeds the threshold.
  * This operation is thread-safe due to the use of `std::lock_guard`.
  *
  * @param key The `chrono_util::Bytes` object representing the key.
@@ -130,41 +146,36 @@ std::optional<chrono_util::Bytes> FileKv::get(const chrono_util::Bytes& key) con
  */
 bool FileKv::put(const chrono_util::Bytes& key, const chrono_util::Bytes& value) {
     std::lock_guard<std::mutex> lock(mutex_); // Protect against concurrent writes
-    auto all_data = read_all();
-    bool found = false;
-    for (auto& pair : all_data) {
-        if (pair.first == key) {
-            pair.second = value; // Update existing value
-            found = true;
-            break;
-        }
+    
+    cache_[key] = value;
+    append_to_file(key, value);
+    append_count_++;
+
+    if (append_count_ >= COMPACTION_THRESHOLD) {
+        std::vector<std::pair<chrono_util::Bytes, chrono_util::Bytes>> data(cache_.begin(), cache_.end());
+        rewrite_file(data);
+        append_count_ = 0;
     }
-    if (!found) {
-        all_data.emplace_back(key, value); // Add new key-value pair
-    }
-    rewrite_file(all_data); // Rewrite the entire file with updated data
-    return true; // Always successful for this simple implementation
+
+    return true;
 }
 
 /**
  * @brief Removes a key-value pair from the store.
  *
- * This method reads all key-value pairs, filters out the one matching the specified key,
- * and then rewrites the file with the remaining data.
+ * Removes the key from the cache and rewrites the file to ensure persistence.
  * This operation is thread-safe due to the use of `std::lock_guard`.
  *
  * @param key The `chrono_util::Bytes` object representing the key of the pair to remove.
  */
 void FileKv::remove(const chrono_util::Bytes& key) {
     std::lock_guard<std::mutex> lock(mutex_); // Protect against concurrent writes
-    auto all_data = read_all();
-    std::vector<std::pair<chrono_util::Bytes, chrono_util::Bytes>> new_data;
-    for (const auto& pair : all_data) {
-        if (pair.first != key) {
-            new_data.push_back(pair); // Keep pairs that do not match the key
-        }
+    
+    if (cache_.erase(key) > 0) {
+        std::vector<std::pair<chrono_util::Bytes, chrono_util::Bytes>> data(cache_.begin(), cache_.end());
+        rewrite_file(data);
+        append_count_ = 0;
     }
-    rewrite_file(new_data); // Rewrite the file without the removed pair
 }
 
 } // namespace chrono_storage

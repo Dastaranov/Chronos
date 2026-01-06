@@ -194,7 +194,7 @@ TEST_CASE(RPCGetBlock, "RPC get_block") {
 
     // Prepare a mock block
     chrono_util::Bytes prev_hash(32, 0x00);
-    chrono_ledger::Block mock_block(prev_hash, 10, 1234567890, {}); // Height 10, consensus_time
+    chrono_ledger::Block mock_block(prev_hash, 10, 1234567890, 0, {}); // Height 10, consensus_time, round
     mock_node_app.mock_storage.block_to_return = mock_block;
     mock_node_app.mock_storage.block_to_return_by_height = mock_block;
 

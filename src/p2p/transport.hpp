@@ -81,6 +81,15 @@ public:
   virtual bool publish(const std::string& topic, const Bytes& msg)=0;
 
   /**
+   * @brief Pure virtual function to send a message directly to a specific peer.
+   *
+   * @param peer_id The identifier of the peer to send the message to.
+   * @param msg The message data as a `Bytes` object.
+   * @return `true` if the message was successfully sent, `false` otherwise.
+   */
+  virtual bool send_direct(const std::string& peer_id, const Bytes& msg)=0;
+
+  /**
    * @brief Pure virtual function to set a callback for handling incoming messages.
    *
    * Derived classes must implement this method to register a `MsgHandler` function

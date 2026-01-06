@@ -22,7 +22,7 @@
  */
 
 #include "ledger/block.hpp"
-#include "crypto/blake3.hpp"
+#include "crypto/crypto_provider.hpp"
 #include "util/codec.hpp"
 #include "util/log.hpp"
 #include <stdexcept>
@@ -43,10 +43,14 @@ namespace chrono_ledger {
  *
  * @param prev_hash The hash of the preceding block, represented as a `Bytes` object.
  * @param height The height of this new block in the blockchain.
+ * @param consensus_time_val The aggregated Proof-of-Time consensus time.
+ * @param round_val The BFT round number.
+ * @param time_tier_val The Time Tier of the proposer.
+ * @param time_quality_score_val The Time Quality Score of the proposer.
  * @param txs A vector of `Transaction` objects to be included in this block.
  */
-Block::Block(const Bytes& prev_hash, uint64_t height, uint64_t consensus_time_val, const std::vector<Transaction>& txs)
-    : prev_block_hash(prev_hash), height(height), consensus_time(consensus_time_val), transactions(txs) {
+Block::Block(const Bytes& prev_hash, uint64_t height, uint64_t consensus_time_val, uint32_t round_val, uint32_t time_tier_val, uint32_t time_quality_score_val, const std::vector<Transaction>& txs)
+    : prev_block_hash(prev_hash), height(height), consensus_time(consensus_time_val), round(round_val), time_tier(time_tier_val), time_quality_score(time_quality_score_val), transactions(txs) {
     timestamp = std::chrono::duration_cast<std::chrono::seconds>(
                     std::chrono::system_clock::now().time_since_epoch()
                 ).count();
@@ -57,7 +61,7 @@ Block::Block(const Bytes& prev_hash, uint64_t height, uint64_t consensus_time_va
  * @brief Calculates the cryptographic hash of the block header.
  *
  * This method concatenates the `prev_block_hash`, `timestamp`, `transactions_merkle_root`,
- * and `height` into a single byte array. It then computes the BLAKE3 hash of this combined
+ * `height`, `consensus_time`, and `round` into a single byte array. It then computes the BLAKE3 hash of this combined
  * data to produce the unique identifier for the block header.
  *
  * @return A `Bytes` object containing the 32-byte BLAKE3 hash of the block header.
@@ -80,7 +84,19 @@ Bytes Block::get_header_hash() const {
     std::memcpy(consensus_time_bytes.data(), &consensus_time, sizeof(consensus_time));
     header_data.insert(header_data.end(), consensus_time_bytes.begin(), consensus_time_bytes.end());
 
-    return chrono_crypto::blake3(header_data);
+    Bytes round_bytes(sizeof(round));
+    std::memcpy(round_bytes.data(), &round, sizeof(round));
+    header_data.insert(header_data.end(), round_bytes.begin(), round_bytes.end());
+
+    Bytes time_tier_bytes(sizeof(time_tier));
+    std::memcpy(time_tier_bytes.data(), &time_tier, sizeof(time_tier));
+    header_data.insert(header_data.end(), time_tier_bytes.begin(), time_tier_bytes.end());
+
+    Bytes time_quality_score_bytes(sizeof(time_quality_score));
+    std::memcpy(time_quality_score_bytes.data(), &time_quality_score, sizeof(time_quality_score));
+    header_data.insert(header_data.end(), time_quality_score_bytes.begin(), time_quality_score_bytes.end());
+
+    return chrono_crypto::get_crypto_provider()->hash(header_data);
 }
 
 /**
@@ -89,8 +105,8 @@ Bytes Block::get_header_hash() const {
  * Uses domain separation to distinguish merkle trees from other hash uses.
  * 
  * Algorithm:
- * - If no transactions: return BLAKE3 of domain-separated empty marker
- * - Hash each transaction: BLAKE3(domain || tx.serialize())
+ * - If no transactions: return Hash of domain-separated empty marker
+ * - Hash each transaction: Hash(domain || tx.serialize())
  * - Build tree: pair hashes and hash again with domain separation
  * - Duplicate last hash if odd number of children
  * - Continue until single root hash
@@ -102,10 +118,12 @@ Bytes Block::get_header_hash() const {
  * @return A `Bytes` object containing the Merkle root hash.
  */
 Bytes Block::calculate_merkle_root() const {
+    auto crypto_provider = chrono_crypto::get_crypto_provider();
+
     if (transactions.empty()) {
         // Domain-separated empty block merkle root
         chrono_util::Bytes empty_marker = chrono_util::string_to_bytes("CHRONOS_MERKLE_EMPTY");
-        return chrono_crypto::blake3(empty_marker);
+        return crypto_provider->hash(empty_marker);
     }
 
     // Hash each transaction with domain separation
@@ -116,7 +134,7 @@ Bytes Block::calculate_merkle_root() const {
         chrono_util::Bytes tx_leaf_data = chrono_util::string_to_bytes("CHRONOS_TX_LEAF_");
         chrono_util::Bytes tx_bytes = tx.serialize();
         tx_leaf_data.insert(tx_leaf_data.end(), tx_bytes.begin(), tx_bytes.end());
-        current_level_hashes.push_back(chrono_crypto::blake3(tx_leaf_data));
+        current_level_hashes.push_back(crypto_provider->hash(tx_leaf_data));
     }
 
     // Build merkle tree with domain separation on internal nodes
@@ -136,7 +154,7 @@ Bytes Block::calculate_merkle_root() const {
                 node_data.insert(node_data.end(), current_level_hashes[i].begin(), current_level_hashes[i].end());
             }
             
-            next_level_hashes.push_back(chrono_crypto::blake3(node_data));
+            next_level_hashes.push_back(crypto_provider->hash(node_data));
         }
         
         current_level_hashes = next_level_hashes;
@@ -154,6 +172,7 @@ Bytes Block::calculate_merkle_root() const {
  * - transactions_merkle_root (32 bytes fixed)
  * - height (uint64_t LE)
  * - consensus_time (uint64_t LE)
+ * - round (uint32_t LE)
  * - num_transactions (uint32_t LE, not size_t)
  * - For each transaction:
  *   - transaction_size (uint32_t LE)
@@ -178,6 +197,15 @@ Bytes Block::serialize() const {
 
     // Add consensus_time (uint64_t LE)
     chrono_util::write_fixed_uint64_le(consensus_time, serialized_data);
+
+    // Add round (uint32_t LE)
+    chrono_util::write_fixed_uint32_le(round, serialized_data);
+
+    // Add time_tier (uint32_t LE)
+    chrono_util::write_fixed_uint32_le(time_tier, serialized_data);
+
+    // Add time_quality_score (uint32_t LE)
+    chrono_util::write_fixed_uint32_le(time_quality_score, serialized_data);
 
     // Add transaction count (uint32_t LE, not size_t for canonical format)
     chrono_util::write_fixed_uint32_le(static_cast<uint32_t>(transactions.size()), serialized_data);
@@ -218,8 +246,8 @@ Bytes Block::serialize() const {
 Block Block::deserialize(const Bytes& data) {
     size_t offset = 0;
 
-    // Minimum size check: 32 (prev_hash) + 8 (timestamp) + 32 (merkle) + 8 (height) + 8 (consensus_time) + 4 (tx_count)
-    const size_t MIN_BLOCK_SIZE = 32 + 8 + 32 + 8 + 8 + 4;
+    // Minimum size check: 32 (prev_hash) + 8 (timestamp) + 32 (merkle) + 8 (height) + 8 (consensus_time) + 4 (round) + 4 (time_tier) + 4 (tx_count)
+    const size_t MIN_BLOCK_SIZE = 32 + 8 + 32 + 8 + 8 + 4 + 4 + 4;
     if (data.size() < MIN_BLOCK_SIZE) {
         throw std::runtime_error("Block data too short for deserialization.");
     }
@@ -240,6 +268,15 @@ Block Block::deserialize(const Bytes& data) {
 
     // Read consensus_time (uint64_t LE)
     uint64_t consensus_time_val = chrono_util::read_fixed_uint64_le(data, offset);
+
+    // Read round (uint32_t LE)
+    uint32_t round_val = chrono_util::read_fixed_uint32_le(data, offset);
+
+    // Read time_tier (uint32_t LE)
+    uint32_t time_tier_val = chrono_util::read_fixed_uint32_le(data, offset);
+
+    // Read time_quality_score (uint32_t LE)
+    uint32_t time_quality_score_val = chrono_util::read_fixed_uint32_le(data, offset);
 
     // Read transaction count (uint32_t LE, not size_t)
     uint32_t num_tx = chrono_util::read_fixed_uint32_le(data, offset);
@@ -263,7 +300,7 @@ Block Block::deserialize(const Bytes& data) {
     }
 
     // Create block and set fields
-    Block block(prev_block_hash_val, height_val, consensus_time_val, transactions_val);
+    Block block(prev_block_hash_val, height_val, consensus_time_val, round_val, time_tier_val, time_quality_score_val, transactions_val);
     block.timestamp = timestamp_val;
     block.transactions_merkle_root = transactions_merkle_root_val;
     
@@ -288,6 +325,9 @@ nlohmann::json Block::to_json() const {
     j["transactions_merkle_root"] = chrono_util::bytes_to_hex(transactions_merkle_root);
     j["height"] = height;
     j["consensus_time"] = consensus_time;
+    j["round"] = round;
+    j["time_tier"] = time_tier;
+    j["time_quality_score"] = time_quality_score;
 
     nlohmann::json txs_json = nlohmann::json::array();
     for (const auto& tx : transactions) {
@@ -303,6 +343,9 @@ void Block::from_json(const nlohmann::json& j) {
     transactions_merkle_root = chrono_util::hex_to_bytes(j.at("transactions_merkle_root").get<std::string>());
     height = j.at("height").get<uint64_t>();
     consensus_time = j.at("consensus_time").get<uint64_t>();
+    round = j.at("round").get<uint32_t>();
+    time_tier = j.value("time_tier", 5); // Default to 5 (NTP) if missing
+    time_quality_score = j.value("time_quality_score", 0); // Default to 0 if missing
 
     transactions.clear();
     for (const auto& tx_json : j.at("transactions")) {
@@ -341,6 +384,18 @@ chrono_util::Bytes Block::get_signable_bytes() const {
     std::memcpy(consensus_time_bytes.data(), &consensus_time, sizeof(consensus_time));
     signable_data.insert(signable_data.end(), consensus_time_bytes.begin(), consensus_time_bytes.end());
 
+    Bytes round_bytes(sizeof(round));
+    std::memcpy(round_bytes.data(), &round, sizeof(round));
+    signable_data.insert(signable_data.end(), round_bytes.begin(), round_bytes.end());
+
+    Bytes time_tier_bytes(sizeof(time_tier));
+    std::memcpy(time_tier_bytes.data(), &time_tier, sizeof(time_tier));
+    signable_data.insert(signable_data.end(), time_tier_bytes.begin(), time_tier_bytes.end());
+
+    Bytes time_quality_score_bytes(sizeof(time_quality_score));
+    std::memcpy(time_quality_score_bytes.data(), &time_quality_score, sizeof(time_quality_score));
+    signable_data.insert(signable_data.end(), time_quality_score_bytes.begin(), time_quality_score_bytes.end());
+
     return signable_data;
 }
 
@@ -368,6 +423,31 @@ bool Block::is_valid() const {
         LOG_WARN(chrono_util::LogCategory::LEDGER, 
                  "Block validation failed: invalid merkle_root size {} (expected 32)", 
                  transactions_merkle_root.size());
+        return false;
+    }
+
+    // Check time_tier (must be <= 4 for full nodes/validators)
+    if (time_tier > 4) {
+        LOG_WARN(chrono_util::LogCategory::LEDGER, 
+                 "Block validation failed: invalid time_tier {} (must be <= 4)", 
+                 time_tier);
+        return false;
+    }
+
+    // Validate Time Quality Score against Time Tier
+    uint32_t min_score = 0;
+    switch (time_tier) {
+        case 1: min_score = 95; break;
+        case 2: min_score = 90; break;
+        case 3: min_score = 80; break;
+        case 4: min_score = 60; break;
+        default: min_score = 0; break;
+    }
+
+    if (time_quality_score < min_score) {
+        LOG_WARN(chrono_util::LogCategory::LEDGER, 
+                 "Block validation failed: time_quality_score {} insufficient for tier {} (required {})", 
+                 time_quality_score, time_tier, min_score);
         return false;
     }
 

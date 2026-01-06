@@ -45,6 +45,12 @@ struct Config {
     NodeType node_type = NodeType::FULL; ///< @var node_type The operational type of this node (Full or Light). Defaults to Full.
     std::string data_dir = "data"; ///< @var data_dir The directory where the node stores its blockchain data. Defaults to "data".
     int rpc_port = 8080; ///< @var rpc_port The port number on which the node's RPC (Remote Procedure Call) server listens. Defaults to 8080.
+    std::string rpc_bind_ip = "127.0.0.1"; ///< @var rpc_bind_ip The IP address to bind the RPC server to. Defaults to localhost for security.
+    std::string rpc_api_key = ""; ///< @var rpc_api_key Optional API key for RPC authentication.
+    
+    // Storage settings
+    std::string storage_backend = "disk"; // "disk", "leveldb", "memory"
+    std::string leveldb_path = "data/leveldb";
 
     // Network settings
     std::string listen_addr = "0.0.0.0"; ///< @var listen_addr The address the node's network server listens on. Defaults to "0.0.0.0".
@@ -53,6 +59,12 @@ struct Config {
 
     // P2P settings
     std::vector<std::string> gossip_topics = {"blocks", "txs", "timeproofs"}; ///< @var gossip_topics Topics for the gossip protocol.
+    std::vector<std::string> bootstrap_nodes;
+    bool enable_peer_discovery = true;
+    int max_peers = 50;
+    int min_peers = 10;
+    int peer_discovery_interval_ms = 30000;
+    int peer_management_interval_ms = 60000;
 
     // Consensus settings
     int slot_ms = 1000; ///< @var slot_ms Slot duration in milliseconds.
@@ -62,16 +74,22 @@ struct Config {
     // Note: time_weights is complex (map of string to double), will handle in config.cpp if needed.
     double outlier_mad_factor = 6.0; ///< @var outlier_mad_factor MAD factor for outlier detection in PoT.
     double min_threshold_ms = 5.0; ///< @var min_threshold_ms Minimum threshold for PoT timestamps in milliseconds.
+    uint64_t min_stake_nanos = 1000000; ///< @var min_stake_nanos Minimum stake to be a validator.
 
     // External Time Source settings
     std::vector<std::string> ntp_servers = {"pool.ntp.org", "time.google.com"}; ///< @var ntp_servers List of NTP servers to query.
     long ntp_query_interval_ms = 5000; ///< @var ntp_query_interval_ms Interval in milliseconds for querying NTP servers.
+    std::string time_backend = "ntp"; ///< @var time_backend Backend to use ("ntp", "chrony", "atomic", "quantum").
+    std::string atomic_clock_device = "/dev/ttyS0"; ///< @var atomic_clock_device Path to atomic clock serial device.
+    std::string quantum_clock_device = "/dev/quantum0"; ///< @var quantum_clock_device Path to quantum clock device.
 
     // Crypto settings
     std::string sign_alg = "dilithium_2"; ///< @var sign_alg Signing algorithm to use.
     std::string prehash = "blake3-256"; ///< @var prehash Pre-hashing algorithm.
     std::string addr_hrp = "cqc"; ///< @var addr_hrp Human-readable part for addresses.
     std::string private_key = ""; ///< @var private_key The secret private key for this node (hex-encoded).
+    std::string public_key = ""; ///< @var public_key The public key for this node (hex-encoded).
+    std::string private_key_id = ""; ///< @var private_key_id ID for KeyManager lookup.
 
     // Tokenomics settings
     uint64_t max_total_supply = 31556926;
@@ -88,6 +106,19 @@ struct Config {
     std::string genesis_expected_hash = ""; ///< @var genesis_expected_hash Expected hash of genesis block for validation.
     uint64_t max_supply_per_account = 1000000000000000; ///< @var max_supply_per_account Maximum allowed balance per account (overflow protection).
 
+    /**
+     * @brief Validates the configuration parameters.
+     * @throws std::invalid_argument if any parameter is invalid.
+     */
+    void validate() const;
+
+private:
+    void validate_network_config() const;
+    void validate_consensus_config() const;
+    void validate_tokenomics_config() const;
+    void validate_crypto_config() const;
+
+public:
     /**
      * @brief Loads configuration parameters from a specified file.
      *

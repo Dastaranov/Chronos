@@ -72,6 +72,14 @@ public:
   void publish(const std::string& topic, const chrono_p2p::P2PMessage& message);
 
   /**
+   * @brief Sends a message directly to a specific peer.
+   *
+   * @param peer_id The identifier of the peer to send the message to.
+   * @param message The Protobuf `P2PMessage` object to send.
+   */
+  void send_direct(const std::string& peer_id, const chrono_p2p::P2PMessage& message);
+
+  /**
    * @brief Sets a callback function to handle incoming messages.
    *
    * This handler will be invoked whenever a message is received from a peer.

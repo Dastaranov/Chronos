@@ -34,19 +34,36 @@
 namespace chrono_ledger {
 
 /**
+ * @enum TransactionType
+ * @brief Defines the type of transaction.
+ */
+enum class TransactionType : uint8_t {
+    TRANSFER = 0,       ///< Standard value transfer
+    KEY_ROTATION = 1,   ///< Validator key rotation
+    STAKE_REGISTRATION = 2, ///< Register as validator with stake
+    UNSTAKE = 3,        ///< Withdraw stake
+    VOTE = 4,           ///< Vote for a node approval
+    PROPOSAL_UPGRADE = 5 ///< Propose a network upgrade
+};
+
+/**
  * @class Transaction
  * @brief Represents a single transaction in the Chronos blockchain.
  *
  * A transaction records the transfer of a certain `amount` from a `sender` address
  * to a `recipient` address, along with an associated `fee`. It includes a `signature`
  * from the sender to prove authenticity and a `nonce` to prevent replay attacks.
+ * It also supports different transaction types and arbitrary payloads.
  */
 class Transaction {
 public:
+    TransactionType type = TransactionType::TRANSFER; ///< @var type The type of the transaction.
     chrono_address::Address sender; ///< @var sender The address of the transaction initiator.
     chrono_address::Address recipient; ///< @var recipient The address of the transaction receiver.
     uint64_t amount; ///< @var amount The value being transferred in the transaction.
     uint64_t fee; ///< @var fee The fee paid for processing this transaction.
+    Bytes public_key; ///< @var public_key The sender's public key (required for verification).
+    Bytes payload; ///< @var payload Arbitrary data associated with the transaction (e.g., new key).
     Bytes signature; ///< @var signature The cryptographic signature of the sender, proving authorization.
     uint64_t nonce; ///< @var nonce A unique number used to prevent replay attacks and order transactions from the same sender.
 
@@ -69,17 +86,28 @@ public:
      * @param amount The amount of value to transfer.
      * @param fee The transaction fee.
      * @param nonce The transaction nonce.
+     * @param type The transaction type (default: TRANSFER).
+     * @param payload Arbitrary payload data (default: empty).
      */
     Transaction(const chrono_address::Address& sender,
                 const chrono_address::Address& recipient,
                 uint64_t amount,
                 uint64_t fee,
-                uint64_t nonce);
+                uint64_t nonce,
+                const Bytes& public_key,
+                TransactionType type = TransactionType::TRANSFER,
+                const Bytes& payload = {});
+
+    /**
+     * @brief Returns the hash of the full transaction (including signature).
+     * @return A `Bytes` object containing the 32-byte BLAKE3 hash.
+     */
+    Bytes get_hash() const;
 
     /**
      * @brief Returns a hash of the transaction data (excluding signature) for signing.
      *
-     * This method serializes the core components of the transaction (sender, recipient, amount, fee, nonce)
+     * This method serializes the core components of the transaction (type, sender, recipient, amount, fee, nonce, payload)
      * into a byte vector and then computes its cryptographic hash (e.g., using BLAKE3). This hash
      * is the data that the sender will sign.
      *

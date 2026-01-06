@@ -40,6 +40,9 @@ void test_empty_block_merkle_root() {
         make_32byte_hash("prev_hash_1"),
         0,
         100,
+        0,
+        5, // Tier 5
+        0, // Score 0
         {}  // Empty transactions
     );
 
@@ -63,16 +66,16 @@ void test_merkle_root_changes_with_transactions() {
     chrono_util::Bytes prev_hash = make_32byte_hash("prev_hash_2");
     
     // Block 1: empty
-    chrono_ledger::Block block1(prev_hash, 0, 100, {});
+    chrono_ledger::Block block1(prev_hash, 0, 100, 0, 5, 0, {}); // Tier 5, Score 0
     chrono_util::Bytes merkle1 = block1.calculate_merkle_root();
     
     // Block 2: with one transaction
-    chrono_ledger::Transaction tx(addr, addr, 100, 10, 0);
+    chrono_ledger::Transaction tx(addr, addr, 100, 10, 0, signer.get_public_key());
     tx.signature = signer.sign(tx.get_hash_for_signing());
     
     std::vector<chrono_ledger::Transaction> txs;
     txs.push_back(tx);
-    chrono_ledger::Block block2(prev_hash, 0, 100, txs);
+    chrono_ledger::Block block2(prev_hash, 0, 100, 0, 5, 0, txs); // Tier 5, Score 0
     chrono_util::Bytes merkle2 = block2.calculate_merkle_root();
     
     ASSERT_FALSE(merkle1 == merkle2, "Merkle root should change when transactions are added");
@@ -89,22 +92,22 @@ void test_merkle_root_deterministic() {
     
     std::vector<chrono_ledger::Transaction> txs1;
     for (int i = 0; i < 2; i++) {
-        chrono_ledger::Transaction tx(addr, addr, 100 + i, 10, i);
+        chrono_ledger::Transaction tx(addr, addr, 100 + i, 10, i, signer.get_public_key());
         tx.signature = signer.sign(tx.get_hash_for_signing());
         txs1.push_back(tx);
     }
     
-    chrono_ledger::Block block1(prev_hash, 0, 100, txs1);
+    chrono_ledger::Block block1(prev_hash, 0, 100, 0, 5, 0, txs1); // Tier 5, Score 0
     chrono_util::Bytes merkle1 = block1.calculate_merkle_root();
     
     std::vector<chrono_ledger::Transaction> txs2;
     for (int i = 0; i < 2; i++) {
-        chrono_ledger::Transaction tx(addr, addr, 100 + i, 10, i);
+        chrono_ledger::Transaction tx(addr, addr, 100 + i, 10, i, signer.get_public_key());
         tx.signature = signer.sign(tx.get_hash_for_signing());
         txs2.push_back(tx);
     }
     
-    chrono_ledger::Block block2(prev_hash, 0, 100, txs2);
+    chrono_ledger::Block block2(prev_hash, 0, 100, 0, 5, 0, txs2); // Tier 5, Score 0
     chrono_util::Bytes merkle2 = block2.calculate_merkle_root();
     
     ASSERT_BYTES_EQ(merkle1, merkle2, "Same transactions should produce same merkle root");
@@ -116,7 +119,7 @@ void test_merkle_root_deterministic() {
 void test_block_is_valid_size_checks() {
     chrono_util::Bytes short_hash = chrono_util::string_to_bytes("short");
     
-    chrono_ledger::Block block(short_hash, 0, 100, {});
+    chrono_ledger::Block block(short_hash, 0, 100, 0, 5, 0, {}); // Tier 5, Score 0
     ASSERT_FALSE(block.is_valid(), "Block with invalid prev_block_hash size should be invalid");
 }
 

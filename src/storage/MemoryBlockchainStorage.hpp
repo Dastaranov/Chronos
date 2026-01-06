@@ -38,10 +38,11 @@ public:
     explicit MemoryBlockchainStorage(std::unique_ptr<IKv> kv_store);
 
     // IBlockchainStorage interface implementation
-    void saveBlock(const chrono_ledger::Block& block) override;
+    bool saveBlock(const chrono_ledger::Block& block) override;
     std::optional<chrono_ledger::Block> getBlock(const chrono_util::Bytes& block_hash) const override;
-    std::optional<chrono_ledger::Block> getBlock(uint64_t height) const override; // NEW
-    void saveMetadata(const chrono_util::Bytes& key, const chrono_util::Bytes& value) override;
+    std::optional<chrono_ledger::Block> getBlock(uint64_t height) const override;
+    bool hasBlock(const chrono_util::Bytes& hash) const override;
+    bool saveMetadata(const chrono_util::Bytes& key, const chrono_util::Bytes& value) override;
     std::optional<chrono_util::Bytes> getMetadata(const chrono_util::Bytes& key) const override;
 
 private:

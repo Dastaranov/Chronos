@@ -55,6 +55,17 @@ public:
     explicit Address(const Bytes& public_key);
 
     /**
+     * @brief Constructs an Address from raw address bytes.
+     * 
+     * This constructor takes the raw 20-byte address directly. It validates the size
+     * and generates the bech32m string.
+     * 
+     * @param bytes The 20-byte raw address.
+     * @param is_raw_bytes Tag to distinguish from public key constructor (value ignored).
+     */
+    Address(const Bytes& bytes, bool is_raw_bytes);
+
+    /**
      * @brief Constructs an Address from a bech32m string.
      *
      * This constructor takes a bech32m encoded string and decodes it to retrieve the raw address bytes.

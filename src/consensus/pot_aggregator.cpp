@@ -41,6 +41,48 @@ namespace chrono_consensus {
 PoTAggregator::PoTAggregator(double mad_factor, double min_thr_ms)
     : mad_factor_(mad_factor), min_thr_ms_(min_thr_ms) {}
 
+bool PoTAggregator::verify_measurement(const TimeMeasurement& tm) const {
+    // 1. Basic sanity check
+    if (tm.timestamp == 0) return false;
+    if (tm.confidence < 0.0 || tm.confidence > 1.0) return false;
+
+    // 2. Statistical check (if we have enough data)
+    if (time_measurements_.size() >= 5) {
+        // Calculate current median using nth_element (O(N))
+        std::vector<uint64_t> timestamps;
+        timestamps.reserve(time_measurements_.size());
+        for (const auto& m : time_measurements_) timestamps.push_back(m.timestamp);
+        
+        size_t n = timestamps.size();
+        size_t mid = n / 2;
+        std::nth_element(timestamps.begin(), timestamps.begin() + mid, timestamps.end());
+        uint64_t median = timestamps[mid];
+        if (n % 2 == 0) {
+            std::nth_element(timestamps.begin(), timestamps.begin() + mid - 1, timestamps.begin() + mid);
+            median = (timestamps[mid - 1] + median) / 2;
+        }
+
+        // Calculate MAD using nth_element (O(N))
+        std::vector<uint64_t> deviations;
+        deviations.reserve(timestamps.size());
+        for (const auto& m : time_measurements_) {
+            deviations.push_back(std::abs(static_cast<int64_t>(m.timestamp) - static_cast<int64_t>(median)));
+        }
+        
+        std::nth_element(deviations.begin(), deviations.begin() + mid, deviations.end());
+        uint64_t mad = deviations[mid]; // MAD is typically the median of deviations
+
+        // Check if new measurement is within 3 * MAD (or some factor)
+        // If MAD is 0 (all timestamps identical), allow small deviation (e.g. 100ms)
+        uint64_t allowed_deviation = std::max(mad * 3, static_cast<uint64_t>(100));
+        if (std::abs(static_cast<int64_t>(tm.timestamp) - static_cast<int64_t>(median)) > allowed_deviation) {
+            return false; // Outlier
+        }
+    }
+
+    return true;
+}
+
 void PoTAggregator::add_timestamp(const TimeMeasurement& tm) {
     // Basic validation: ignore timestamps that are too old or have very low confidence
     if (tm.timestamp < min_thr_ms_) { // Assuming min_thr_ms_ can also serve as a minimum valid time
@@ -49,6 +91,10 @@ void PoTAggregator::add_timestamp(const TimeMeasurement& tm) {
     }
     if (tm.confidence < 0.1) { // Example threshold for confidence
         // Log or handle low confidence timestamp
+        return;
+    }
+
+    if (!verify_measurement(tm)) {
         return;
     }
 
@@ -64,31 +110,32 @@ uint64_t PoTAggregator::get_consensus_time() const {
         throw std::runtime_error("No time measurements to aggregate.");
     }
 
-    // 1. Extract timestamps for sorting and median calculation
+    // 1. Extract timestamps for median calculation (O(N))
     std::vector<uint64_t> timestamps_only;
     timestamps_only.reserve(time_measurements_.size());
     for (const auto& tm : time_measurements_) {
         timestamps_only.push_back(tm.timestamp);
     }
-    std::sort(timestamps_only.begin(), timestamps_only.end());
-
-    // Calculate median timestamp
-    uint64_t median_timestamp;
+    
     size_t size = timestamps_only.size();
+    size_t mid = size / 2;
+    std::nth_element(timestamps_only.begin(), timestamps_only.begin() + mid, timestamps_only.end());
+    uint64_t median_timestamp = timestamps_only[mid];
+    
     if (size % 2 == 0) {
-        median_timestamp = (timestamps_only[size / 2 - 1] + timestamps_only[size / 2]) / 2;
-    } else {
-        median_timestamp = timestamps_only[size / 2];
+        std::nth_element(timestamps_only.begin(), timestamps_only.begin() + mid - 1, timestamps_only.begin() + mid);
+        median_timestamp = (timestamps_only[mid - 1] + median_timestamp) / 2;
     }
 
-    // 2. Calculate Median Absolute Deviation (MAD)
+    // 2. Calculate Median Absolute Deviation (MAD) (O(N))
     std::vector<uint64_t> deviations;
     deviations.reserve(size);
-    for (uint64_t ts : timestamps_only) {
-        deviations.push_back(std::abs(static_cast<int64_t>(ts) - static_cast<int64_t>(median_timestamp)));
+    for (const auto& tm : time_measurements_) {
+        deviations.push_back(std::abs(static_cast<int64_t>(tm.timestamp) - static_cast<int64_t>(median_timestamp)));
     }
-    std::sort(deviations.begin(), deviations.end());
-    uint64_t mad = deviations[size / 2];
+    
+    std::nth_element(deviations.begin(), deviations.begin() + mid, deviations.end());
+    uint64_t mad = deviations[mid];
 
     // 3. Filter out outliers and prepare for weighted average
     std::vector<TimeMeasurement> filtered_measurements;

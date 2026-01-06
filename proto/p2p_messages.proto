@@ -10,6 +10,8 @@ message HandshakeMessage {
   uint64 current_block_height = 5;
   string genesis_hash = 6;
   uint64 max_total_supply = 7;
+  uint32 time_tier = 8;
+  double time_quality_score = 9;
 }
 
 message GetBlocksMessage {
@@ -31,8 +33,19 @@ message TransactionMessage {
   bytes transaction_data = 1;
 }
 
-message PeerListMessage {
-  repeated string peers = 1; // "ip:port" format
+message GetPeersRequest {
+    uint32 max_peers = 1;
+}
+
+message PeerAddress {
+    string node_id = 1;
+    string address = 2;    // IP:port format
+    uint64 last_seen = 3;  // Unix timestamp
+    bool is_validator = 4;
+}
+
+message GetPeersResponse {
+    repeated PeerAddress peers = 1;
 }
 
 message P2PMessage {
@@ -42,17 +55,28 @@ message P2PMessage {
     BlockMessage block = 3;
     GetTransactionsMessage get_transactions = 4;
     TransactionMessage transaction = 5;
-    PeerListMessage peer_list = 6;
     // BFT messages
     chronos.bft.Prevote prevote = 7;
     chronos.bft.Precommit precommit = 8;
     chronos.bft.NewRound new_round = 9;
+    // Peer Discovery
+    GetPeersRequest get_peers_request = 10;
+    GetPeersResponse get_peers_response = 11;
     // Snapshot messages
-    GetSnapshotsMessage get_snapshots = 10;
-    SnapshotsAvailableMessage snapshots_available = 11;
-    GetSnapshotChunkMessage get_snapshot_chunk = 12;
-    SnapshotChunkMessage snapshot_chunk = 13;
+    GetSnapshotsMessage get_snapshots = 12;
+    SnapshotsAvailableMessage snapshots_available = 13;
+    GetSnapshotChunkMessage get_snapshot_chunk = 14;
+    SnapshotChunkMessage snapshot_chunk = 15;
+    MessageFragment fragment = 16;
   }
+}
+
+message MessageFragment {
+  string message_id = 1;
+  uint32 fragment_index = 2;
+  uint32 total_fragments = 3;
+  bytes data = 4;
+  uint32 original_type = 5; // Field number in P2PMessage oneof
 }
 
 message GetSnapshotsMessage {

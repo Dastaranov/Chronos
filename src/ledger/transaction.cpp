@@ -50,13 +50,16 @@ Transaction::Transaction(const chrono_address::Address& sender,
                          const chrono_address::Address& recipient,
                          uint64_t amount,
                          uint64_t fee,
-                         uint64_t nonce)
-    : sender(sender), recipient(recipient), amount(amount), fee(fee), nonce(nonce) {
+                         uint64_t nonce,
+                         const Bytes& public_key,
+                         TransactionType type,
+                         const Bytes& payload)
+    : sender(sender), recipient(recipient), amount(amount), fee(fee), nonce(nonce), public_key(public_key), type(type), payload(payload) {
     if (!sender.is_valid() || !recipient.is_valid()) {
         throw std::invalid_argument("Sender or recipient address is invalid.");
     }
-    if (amount == 0 && fee == 0) {
-        throw std::invalid_argument("Transaction must have amount or fee.");
+    if (amount == 0 && fee == 0 && type == TransactionType::TRANSFER) {
+        throw std::invalid_argument("Transfer transaction must have amount or fee.");
     }
     // Check for overflow when summing amount and fee
     if (amount > (UINT64_MAX - fee)) { 
@@ -68,10 +71,12 @@ Transaction::Transaction(const chrono_address::Address& sender,
  * @brief Returns a hash of the transaction data (excluding signature) for signing.
  *
  * Canonical hash format:
+ * - type (1 byte)
  * - sender_address_bytes (20 bytes fixed)
  * - recipient_address_bytes (20 bytes fixed)
  * - amount (uint64_t LE)
  * - fee (uint64_t LE)
+ * - payload (variable)
  * - nonce (uint64_t LE)
  *
  * @return A `Bytes` object containing the 32-byte BLAKE3 hash of the transaction data.
@@ -79,6 +84,9 @@ Transaction::Transaction(const chrono_address::Address& sender,
 Bytes Transaction::get_hash_for_signing() const {
     Bytes data_to_hash;
     
+    // Add type (1 byte)
+    data_to_hash.push_back(static_cast<uint8_t>(type));
+
     // Add sender address bytes (fixed 20 bytes)
     const auto& sender_bytes = sender.get_bytes();
     data_to_hash.insert(data_to_hash.end(), sender_bytes.begin(), sender_bytes.end());
@@ -93,6 +101,14 @@ Bytes Transaction::get_hash_for_signing() const {
     // Add fee (uint64_t LE)
     chrono_util::write_fixed_uint64_le(fee, data_to_hash);
 
+    // Add public key (variable length, but usually fixed for a scheme)
+    // We should prefix with length to be safe and canonical
+    chrono_util::write_fixed_uint32_le(static_cast<uint32_t>(public_key.size()), data_to_hash);
+    data_to_hash.insert(data_to_hash.end(), public_key.begin(), public_key.end());
+
+    // Add payload (raw bytes)
+    data_to_hash.insert(data_to_hash.end(), payload.begin(), payload.end());
+
     // Add nonce (uint64_t LE)
     chrono_util::write_fixed_uint64_le(nonce, data_to_hash);
 
@@ -100,14 +116,25 @@ Bytes Transaction::get_hash_for_signing() const {
 }
 
 /**
+ * @brief Returns the hash of the full transaction (including signature).
+ * @return A `Bytes` object containing the 32-byte BLAKE3 hash.
+ */
+Bytes Transaction::get_hash() const {
+    return chrono_crypto::blake3(serialize());
+}
+
+/**
  * @brief Serializes the transaction into a byte vector using canonical format.
  *
  * Canonical serialization format (little-endian):
+ * - type (1 byte)
  * - sender_address_bytes (20 bytes fixed)
  * - recipient_address_bytes (20 bytes fixed)
  * - amount (uint64_t LE)
  * - fee (uint64_t LE)
- * - signature_length (uint32_t LE, not size_t)
+ * - payload_length (uint32_t LE)
+ * - payload_bytes (variable)
+ * - signature_length (uint32_t LE)
  * - signature_bytes (variable)
  * - nonce (uint64_t LE)
  *
@@ -115,6 +142,9 @@ Bytes Transaction::get_hash_for_signing() const {
  */
 Bytes Transaction::serialize() const {
     Bytes serialized_data;
+
+    // Add type (1 byte)
+    serialized_data.push_back(static_cast<uint8_t>(type));
 
     // Add sender address bytes (fixed 20 bytes)
     const auto& sender_bytes = sender.get_bytes();
@@ -129,6 +159,14 @@ Bytes Transaction::serialize() const {
 
     // Add fee (uint64_t LE)
     chrono_util::write_fixed_uint64_le(fee, serialized_data);
+
+    // Add public key with length prefix
+    chrono_util::write_fixed_uint32_le(static_cast<uint32_t>(public_key.size()), serialized_data);
+    serialized_data.insert(serialized_data.end(), public_key.begin(), public_key.end());
+
+    // Add payload with length prefix
+    chrono_util::write_fixed_uint32_le(static_cast<uint32_t>(payload.size()), serialized_data);
+    serialized_data.insert(serialized_data.end(), payload.begin(), payload.end());
 
     // Add signature with length prefix (uint32_t LE, not size_t)
     chrono_util::write_fixed_uint32_le(static_cast<uint32_t>(signature.size()), serialized_data);
@@ -147,10 +185,13 @@ Bytes Transaction::serialize() const {
  * It parses the byte array in little-endian format with fixed-width types, extracting each field in order.
  *
  * Expected format:
+ * - type (1 byte)
  * - sender_address_bytes (20 bytes fixed)
  * - recipient_address_bytes (20 bytes fixed)
  * - amount (uint64_t LE)
  * - fee (uint64_t LE)
+ * - payload_length (uint32_t LE)
+ * - payload_bytes (variable)
  * - signature_length (uint32_t LE)
  * - signature_bytes (variable)
  * - nonce (uint64_t LE)
@@ -162,18 +203,22 @@ Bytes Transaction::serialize() const {
 Transaction Transaction::deserialize(const Bytes& data) {
     size_t offset = 0;
 
-    // Minimum size check: 20 (sender) + 20 (recipient) + 8 (amount) + 8 (fee) + 4 (sig_len) + 8 (nonce)
-    const size_t MIN_TX_SIZE = 20 + 20 + 8 + 8 + 4 + 8;
+    // Minimum size check: 1 (type) + 20 (sender) + 20 (recipient) + 8 (amount) + 8 (fee) + 4 (payload_len) + 4 (sig_len) + 8 (nonce)
+    const size_t MIN_TX_SIZE = 1 + 20 + 20 + 8 + 8 + 4 + 4 + 8;
     if (data.size() < MIN_TX_SIZE) {
         throw std::runtime_error("Transaction data too short for deserialization.");
     }
 
+    // Read type (1 byte)
+    TransactionType type = static_cast<TransactionType>(data[offset]);
+    offset += 1;
+
     // Read sender address (20 bytes fixed)
-    chrono_address::Address sender_addr(Bytes(data.begin() + offset, data.begin() + offset + 20));
+    chrono_address::Address sender_addr(Bytes(data.begin() + offset, data.begin() + offset + 20), true);
     offset += 20;
 
     // Read recipient address (20 bytes fixed)
-    chrono_address::Address recipient_addr(Bytes(data.begin() + offset, data.begin() + offset + 20));
+    chrono_address::Address recipient_addr(Bytes(data.begin() + offset, data.begin() + offset + 20), true);
     offset += 20;
 
     // Read amount (uint64_t LE)
@@ -181,6 +226,22 @@ Transaction Transaction::deserialize(const Bytes& data) {
 
     // Read fee (uint64_t LE)
     uint64_t fee_val = chrono_util::read_fixed_uint64_le(data, offset);
+
+    // Read public key length
+    uint32_t pubkey_size = chrono_util::read_fixed_uint32_le(data, offset);
+    if (offset + pubkey_size > data.size()) {
+        throw std::runtime_error("Transaction data too short for public key.");
+    }
+    Bytes public_key_val(data.begin() + offset, data.begin() + offset + pubkey_size);
+    offset += pubkey_size;
+
+    // Read payload length
+    uint32_t payload_size = chrono_util::read_fixed_uint32_le(data, offset);
+    if (offset + payload_size > data.size()) {
+        throw std::runtime_error("Transaction data too short for payload.");
+    }
+    Bytes payload_val(data.begin() + offset, data.begin() + offset + payload_size);
+    offset += payload_size;
 
     // Read signature length (uint32_t LE, not size_t)
     uint32_t sig_size = chrono_util::read_fixed_uint32_le(data, offset);
@@ -198,7 +259,7 @@ Transaction Transaction::deserialize(const Bytes& data) {
     uint64_t nonce_val = chrono_util::read_fixed_uint64_le(data, offset);
 
     // Create and populate transaction
-    Transaction tx(sender_addr, recipient_addr, amount_val, fee_val, nonce_val);
+    Transaction tx(sender_addr, recipient_addr, amount_val, fee_val, nonce_val, public_key_val, type, payload_val);
     tx.signature = signature_val;
     return tx;
 }
@@ -227,10 +288,13 @@ std::string Transaction::to_string() const {
  */
 nlohmann::json Transaction::to_json() const {
     nlohmann::json j;
+    j["type"] = static_cast<uint8_t>(type);
     j["sender"] = sender.to_string(); // Assuming Address has a to_string() method
     j["recipient"] = recipient.to_string(); // Assuming Address has a to_string() method
     j["amount"] = amount;
     j["fee"] = fee;
+    j["public_key"] = chrono_util::bytes_to_hex(public_key);
+    j["payload"] = chrono_util::bytes_to_hex(payload);
     j["signature"] = chrono_util::bytes_to_hex(signature);
     j["nonce"] = nonce;
     return j;
@@ -246,10 +310,21 @@ nlohmann::json Transaction::to_json() const {
  * @param j A `nlohmann::json` object containing the transaction's data.
  */
 void Transaction::from_json(const nlohmann::json& j) {
+    if (j.contains("type")) {
+        type = static_cast<TransactionType>(j.at("type").get<uint8_t>());
+    } else {
+        type = TransactionType::TRANSFER;
+    }
     sender = chrono_address::Address(j.at("sender").get<std::string>()); // Assuming Address has a constructor from string
     recipient = chrono_address::Address(j.at("recipient").get<std::string>()); // Assuming Address has a constructor from string
     amount = j.at("amount").get<uint64_t>();
     fee = j.at("fee").get<uint64_t>();
+    if (j.contains("public_key")) {
+        public_key = chrono_util::hex_to_bytes(j.at("public_key").get<std::string>());
+    }
+    if (j.contains("payload")) {
+        payload = chrono_util::hex_to_bytes(j.at("payload").get<std::string>());
+    }
     signature = chrono_util::hex_to_bytes(j.at("signature").get<std::string>());
     nonce = j.at("nonce").get<uint64_t>();
 }

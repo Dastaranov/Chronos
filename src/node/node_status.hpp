@@ -35,6 +35,10 @@ struct NodeStatus {
     std::atomic<size_t> connected_peers = 0; ///< Number of active P2P connections.
     std::atomic<uint64_t> total_transactions_processed = 0; ///< Total transactions processed since node start.
     std::atomic<uint64_t> total_blocks_processed = 0; ///< Total blocks processed since node start.
+    std::atomic<uint32_t> active_validators = 0; ///< Number of currently active validators.
+    std::atomic<uint32_t> pending_votes = 0; ///< Number of pending governance votes.
+    std::atomic<uint32_t> consensus_round = 0; ///< Current BFT consensus round.
+    std::string consensus_state = "Idle"; ///< Current state of the consensus engine.
     std::string last_log_message = ""; ///< The last significant log message for display.
 };
 

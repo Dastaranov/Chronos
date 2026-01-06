@@ -147,17 +147,18 @@ void ConsoleDisplay::init_display() {
     // === BLOCKCHAIN METRICS SECTION (Lines 19-24) ===
     std::cout << std::endl << COLOR_BOLD << " ▸ BLOCKCHAIN METRICS" << COLOR_RESET << std::endl;
     std::cout << "  ├─ Current Height:   " << status_.current_block_height << std::endl;
-    std::cout << "  ├─ Total Blocks:     " << status_.total_blocks_processed << std::endl;
-    std::cout << "  ├─ Total TXs:        " << status_.total_transactions_processed << std::endl;
-    std::cout << "  └─ Mempool Size:     " << status_.mempool_size << " transactions" << std::endl;
+    std::cout << "  ├─ Consensus Round:  " << status_.consensus_round << std::endl;
+    std::cout << "  ├─ Active Validators:" << status_.active_validators << std::endl;
+    std::cout << "  ├─ Mempool Size:     " << status_.mempool_size << " transactions" << std::endl;
+    std::cout << "  └─ Pending Votes:    " << status_.pending_votes << std::endl;
 
-    // === REAL-TIME LOG STREAM (Lines 25-31) ===
+    // === REAL-TIME LOG STREAM (Lines 26-32) ===
     std::cout << std::endl << COLOR_BOLD << " ▸ LOG STREAM (Latest 5)" << COLOR_RESET << std::endl;
     for (int i = 0; i < 5; i++) {
         std::cout << "  │ " << std::endl;
     }
 
-    // === BLOCKCHAIN ACTIVITY STREAM (Lines 32-37) ===
+    // === BLOCKCHAIN ACTIVITY STREAM (Lines 33-38) ===
     std::cout << std::endl << COLOR_BOLD << " ▸ BLOCKCHAIN ACTIVITY (Latest 3)" << COLOR_RESET << std::endl;
     std::cout << "  │ " << std::endl;
     std::cout << "  │ " << std::endl;
@@ -167,8 +168,8 @@ void ConsoleDisplay::init_display() {
     std::cout << COLOR_DIM << std::endl << "  [CTRL+C to stop]" << COLOR_RESET << std::endl;
 
     std::cout << std::flush;
-    current_log_row_ = 26; // Starting row for log messages
-    current_activity_row_ = 33; // Starting row for activity messages
+    current_log_row_ = 27; // Starting row for log messages (adjusted)
+    current_activity_row_ = 34; // Starting row for activity messages (adjusted)
 }
 
 /**
@@ -185,11 +186,13 @@ void ConsoleDisplay::update_status() {
     move_cursor_to(20, 1);
     std::cout << "  ├─ Current Height:   " << pad_text(std::to_string(status_.current_block_height), 30) << "  " << std::endl;
     move_cursor_to(21, 1);
-    std::cout << "  ├─ Total Blocks:     " << pad_text(std::to_string(status_.total_blocks_processed), 30) << "  " << std::endl;
+    std::cout << "  ├─ Consensus Round:  " << pad_text(std::to_string(status_.consensus_round), 30) << "  " << std::endl;
     move_cursor_to(22, 1);
-    std::cout << "  ├─ Total TXs:        " << pad_text(std::to_string(status_.total_transactions_processed), 30) << "  " << std::endl;
+    std::cout << "  ├─ Active Validators:" << pad_text(std::to_string(status_.active_validators), 30) << "  " << std::endl;
     move_cursor_to(23, 1);
-    std::cout << "  └─ Mempool Size:     " << pad_text(std::to_string(status_.mempool_size) + " transactions", 30) << "  " << std::endl;
+    std::cout << "  ├─ Mempool Size:     " << pad_text(std::to_string(status_.mempool_size) + " transactions", 30) << "  " << std::endl;
+    move_cursor_to(24, 1);
+    std::cout << "  └─ Pending Votes:    " << pad_text(std::to_string(status_.pending_votes), 30) << "  " << std::endl;
 
     std::cout << std::flush;
 }

@@ -15,6 +15,7 @@
 #pragma once
 
 #include "ledger/transaction.hpp"
+#include "ledger/node_registry.hpp" // NEW: NodeRegistry
 #include "storage/IKv.hpp" // Include IKv for persistence
 #include <unordered_map>
 #include <string>
@@ -91,6 +92,30 @@ public:
     void credit(const std::string& addr, uint64_t amount);
 
     /**
+     * @brief Slashes a validator for misbehavior.
+     * 
+     * Reduces the validator's stake in the registry.
+     * Since the stake was already removed from circulating supply (locked),
+     * slashing it effectively burns it.
+     * 
+     * @param node_id The validator's ID (address).
+     * @param penalty The amount to slash in nanos.
+     * @param reason The reason for slashing.
+     */
+    void slash_validator(const std::string& node_id, uint64_t penalty, const std::string& reason);
+
+    /**
+     * @brief Retrieves the active public key for a validator.
+     * 
+     * If the validator has rotated their key, this returns the latest key.
+     * If no rotation has occurred, it returns an empty Bytes vector (implying the address itself is the key source).
+     * 
+     * @param addr The validator's address.
+     * @return The active public key bytes, or empty if default.
+     */
+    Bytes get_validator_key(const std::string& addr) const;
+
+    /**
      * @brief Serializes the entire state (balances and nonces) to a binary format.
      *
      * The binary format consists of:
@@ -159,6 +184,18 @@ public:
      */
     static bool is_valid_address(const std::string& addr);
 
+    /**
+     * @brief Provides access to the node registry.
+     * @return A const reference to the NodeRegistry.
+     */
+    const NodeRegistry& get_node_registry() const { return node_registry_; }
+
+    /**
+     * @brief Provides mutable access to the node registry.
+     * @return A reference to the NodeRegistry.
+     */
+    NodeRegistry& get_node_registry_mutable() { return node_registry_; }
+
 private:
     /**
      * @brief Loads account balances from the underlying key-value store.
@@ -180,6 +217,8 @@ private:
     std::unordered_map<std::string, uint64_t> balances_;
     ///< @var A map storing account nonces, keyed by address string and valued by `uint64_t` nonce count.
     std::unordered_map<std::string, uint64_t> nonces_;
+    ///< @var A map storing active public keys for validators, keyed by address string.
+    std::unordered_map<std::string, Bytes> validator_keys_;
     ///< @var A reference to the key-value store used for persisting state data.
     chrono_storage::IKv& kv_store_; // Reverted to reference
     ///< @var Mutex to ensure thread-safe access to the `balances_` and `nonces_` maps.
@@ -187,6 +226,9 @@ private:
 
     ///< @var Total circulating supply of tokens in nanos.
     uint64_t total_circulating_supply_ = 0;
+
+    ///< @var Registry for node identity and staking.
+    NodeRegistry node_registry_;
 };
 
 } // namespace chrono_ledger

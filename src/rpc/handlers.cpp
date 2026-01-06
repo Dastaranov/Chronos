@@ -153,7 +153,7 @@ nlohmann::json JsonRpcServer::handle_get_status(const nlohmann::json& params) {
     result["current_block_height"] = node_app_.next_block_height_ - 1; // current height is next_block_height_ - 1
     result["last_block_hash"] = chrono_util::bytes_to_hex(node_app_.last_block_hash_);
     result["connected_peers_count"] = node_app_.status_.connected_peers;
-    result["is_syncing"] = false; // TODO: Implement actual syncing status
+    result["is_syncing"] = node_app_.is_syncing();
 
     return {{"jsonrpc", "2.0"}, {"result", result}, {"id", nullptr}};
 }

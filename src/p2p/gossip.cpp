@@ -79,6 +79,21 @@ void Gossip::publish(const std::string& topic, const chrono_p2p::P2PMessage& mes
     }
 }
 
+void Gossip::send_direct(const std::string& peer_id, const chrono_p2p::P2PMessage& message) {
+    if (transport_) {
+        // Serialize the Protobuf message to Bytes
+        Bytes data(message.ByteSizeLong());
+        if (!message.SerializeToArray(data.data(), data.size())) {
+            LOG_ERROR(chrono_util::LogCategory::P2P, "Failed to serialize Protobuf P2PMessage for direct send.");
+            return;
+        }
+        transport_->send_direct(peer_id, data);
+        LOG_INFO(chrono_util::LogCategory::P2P, "Sent direct Protobuf message to {}", peer_id);
+    } else {
+        LOG_WARN(chrono_util::LogCategory::P2P, "Cannot send direct message, transport not initialized.");
+    }
+}
+
 /**
  * @brief Sets a callback function to handle incoming messages.
  *

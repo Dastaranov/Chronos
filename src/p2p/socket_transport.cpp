@@ -117,6 +117,22 @@ bool SocketTransport::publish(const std::string& topic, const Bytes& msg) {
     return sent_to_any;
 }
 
+bool SocketTransport::send_direct(const std::string& peer_id, const Bytes& msg) {
+    std::lock_guard<std::mutex> lock(active_clients_mutex_);
+    auto it = active_clients_.find(peer_id);
+    if (it != active_clients_.end()) {
+        if (it->second->send_message(msg)) {
+            LOG_INFO(chrono_util::LogCategory::P2P, "Sent direct message to {}", peer_id);
+            return true;
+        } else {
+            LOG_ERROR(chrono_util::LogCategory::P2P, "Failed to send direct message to {}", peer_id);
+            return false;
+        }
+    }
+    LOG_WARN(chrono_util::LogCategory::P2P, "Peer {} not found in active clients for direct message.", peer_id);
+    return false;
+}
+
 void SocketTransport::on_message(MsgHandler cb) {
     message_callback_ = std::move(cb);
 }

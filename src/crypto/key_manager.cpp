@@ -14,59 +14,179 @@
  */
 
 #include "crypto/key_manager.hpp"
+#include "crypto/aes_crypto.hpp"
+#include "crypto/blake3.hpp"
 #include "util/log.hpp"
 #include <fstream>
 #include <algorithm>
 #include <stdexcept>
+#include <cstring>
+#include <oqs/oqs.h>
 
 namespace chrono_crypto {
 
 // Base58Check alphabet (excludes 0, O, I, l to avoid confusion)
 const std::string BASE58_ALPHABET = "123456789ABCDEFGHJKLMNPQRSTUVWXYZabcdefghijkmnopqrstuvwxyz";
 
+// Helper to derive key from passphrase and salt
+static chrono_util::Bytes derive_key(const std::string& passphrase, const chrono_util::Bytes& salt) {
+    // Use blake3_keyed(salt, passphrase) as KDF
+    // Salt is key, passphrase is data
+    // Salt must be 32 bytes for blake3_keyed key
+    if (salt.size() != 32) {
+        throw std::invalid_argument("Salt must be 32 bytes");
+    }
+    chrono_util::Bytes passphrase_bytes(passphrase.begin(), passphrase.end());
+    return chrono_crypto::blake3_keyed(salt, passphrase_bytes);
+}
+
+/**
+ * @brief Encodes bytes to Base58 string.
+ */
+static std::string encode_base58(const std::vector<uint8_t>& data) {
+    // Skip & count leading zeros
+    int zeros = 0;
+    auto it = data.begin();
+    while (it != data.end() && *it == 0) {
+        zeros++;
+        it++;
+    }
+    
+    // Allocate enough space in big-endian base58 representation
+    // log(256) / log(58) is approx 1.37
+    std::vector<unsigned char> b58((data.end() - it) * 138 / 100 + 1); 
+    
+    // Process the bytes
+    while (it != data.end()) {
+        int carry = *it;
+        for (auto b58_it = b58.rbegin(); b58_it != b58.rend(); b58_it++) {
+            carry += 256 * (*b58_it);
+            *b58_it = carry % 58;
+            carry /= 58;
+        }
+        it++;
+    }
+    
+    // Skip leading zeroes in b58 result
+    auto b58_it = b58.begin();
+    while (b58_it != b58.end() && *b58_it == 0)
+        b58_it++;
+        
+    std::string str;
+    str.reserve(zeros + (b58.end() - b58_it));
+    str.assign(zeros, '1');
+    while (b58_it != b58.end())
+        str += BASE58_ALPHABET[*(b58_it++)];
+    return str;
+}
+
+/**
+ * @brief Decodes Base58 string to bytes.
+ */
+static std::vector<uint8_t> decode_base58(const std::string& str) {
+    // Skip and count leading '1's
+    int zeros = 0;
+    auto it = str.begin();
+    while (it != str.end() && *it == '1') {
+        zeros++;
+        it++;
+    }
+    
+    // Allocate enough space in big-endian base256 representation
+    // log(58) / log(256) is approx 0.73
+    std::vector<unsigned char> b256((str.end() - it) * 733 / 1000 + 1); 
+    
+    // Process the characters
+    while (it != str.end()) {
+        size_t digit = BASE58_ALPHABET.find(*it);
+        if (digit == std::string::npos) return {}; // Invalid character
+        
+        int carry = digit;
+        for (auto b256_it = b256.rbegin(); b256_it != b256.rend(); b256_it++) {
+            carry += 58 * (*b256_it);
+            *b256_it = carry % 256;
+            carry /= 256;
+        }
+        it++;
+    }
+    
+    // Skip leading zeroes in b256
+    auto b256_it = b256.begin();
+    while (b256_it != b256.end() && *b256_it == 0)
+        b256_it++;
+        
+    std::vector<uint8_t> result;
+    result.reserve(zeros + (b256.end() - b256_it));
+    result.assign(zeros, 0);
+    result.insert(result.end(), b256_it, b256.end());
+    return result;
+}
+
 /**
  * @brief Encodes bytes to Base58Check format.
  * 
- * Base58Check is used in Bitcoin and provides:
- * - Checksum for error detection
- * - No confusion between 0/O or I/l
- * - Shorter representation than hex
+ * Format: Version (var) | Data | Checksum (4 bytes)
+ * Checksum = First 4 bytes of BLAKE3(Version | Data)
  */
-static std::string encode_base58check(const chrono_util::Bytes& data, const std::string& version = "cqc") {
-    // This is a simplified Base58Check encoder
-    // In production, use a proper Base58Check library or implement rigorously
+static std::string encode_base58check(const chrono_util::Bytes& data, const std::string& version_prefix = "cqc") {
+    // Note: Standard Base58Check uses a version byte (e.g. 0x00 for Bitcoin).
+    // Here we are using a string prefix "cqc" which is Bech32-style, but the user asked for Base58Check.
+    // To be strictly Base58Check, we should use a version BYTE.
+    // Let's define a version byte for Chronos addresses, e.g., 0x1C (28).
+    // However, the existing code expects "cqc" prefix in the string.
+    // Let's stick to standard Base58Check logic: [VersionByte][Data][Checksum] -> Base58Encode
+    // And maybe prepend "cqc" if needed, or just rely on the version byte to identify it.
+    // But wait, the previous code did: return version + "1" + ...
+    // Let's implement standard Base58Check with a specific version byte.
     
-    // For now, return a prefixed hex representation
-    // TODO: Implement full Base58Check with proper checksum
-    std::string result = version + "1";
+    uint8_t version_byte = 0x01; // Example version
     
-    // Convert first 20 bytes to base58 (simplified)
-    for (size_t i = 0; i < std::min(size_t(20), data.size()); i++) {
-        uint8_t byte = data[i];
-        result += BASE58_ALPHABET[byte % 58];
-    }
+    std::vector<uint8_t> payload;
+    payload.push_back(version_byte);
+    payload.insert(payload.end(), data.begin(), data.end());
     
-    return result;
+    // Calculate checksum (BLAKE3)
+    chrono_util::Bytes hash = chrono_crypto::blake3(payload);
+    
+    // Append first 4 bytes of checksum
+    payload.insert(payload.end(), hash.begin(), hash.begin() + 4);
+    
+    // Encode to Base58
+    return encode_base58(payload);
 }
 
 /**
  * @brief Decodes Base58Check format back to bytes.
  */
 static chrono_util::Bytes decode_base58check(const std::string& encoded) {
-    chrono_util::Bytes result;
+    std::vector<uint8_t> decoded = decode_base58(encoded);
     
-    // Simplified decoder (remove version prefix)
-    if (encoded.substr(0, 4) == "cqc1") {
-        std::string data = encoded.substr(4);
-        for (char c : data) {
-            auto it = BASE58_ALPHABET.find(c);
-            if (it != std::string::npos) {
-                result.push_back(static_cast<uint8_t>(it));
-            }
-        }
+    // Check length (Version + Data + Checksum(4))
+    if (decoded.size() < 5) return {};
+    
+    // Extract checksum
+    std::vector<uint8_t> checksum(decoded.end() - 4, decoded.end());
+    
+    // Extract payload (Version + Data)
+    std::vector<uint8_t> payload(decoded.begin(), decoded.end() - 4);
+    
+    // Verify checksum
+    chrono_util::Bytes hash = chrono_crypto::blake3(payload);
+    std::vector<uint8_t> calculated_checksum(hash.begin(), hash.begin() + 4);
+    
+    if (checksum != calculated_checksum) {
+        LOG_ERROR(chrono_util::LogCategory::CRYPTO, "Base58Check checksum mismatch");
+        return {};
     }
     
-    return result;
+    // Check version byte (0x01)
+    if (payload[0] != 0x01) {
+        LOG_ERROR(chrono_util::LogCategory::CRYPTO, "Invalid address version: {}", payload[0]);
+        return {};
+    }
+    
+    // Return data (exclude version byte)
+    return chrono_util::Bytes(payload.begin() + 1, payload.end());
 }
 
 KeyManager::KeyManager(const std::string& key_dir)
@@ -102,7 +222,76 @@ std::filesystem::path KeyManager::get_key_path(const std::string& key_id) {
     return key_directory_ / (safe_id + ".key");
 }
 
-bool KeyManager::save_private_key(const std::string& key_id, const chrono_util::Bytes& private_key) {
+bool KeyManager::save_key_pair(const std::string& key_id, const KeyPair& keys, const std::string& passphrase) {
+    // Save private key (encrypted if passphrase provided)
+    if (!save_private_key(key_id, keys.private_key, passphrase)) {
+        return false;
+    }
+
+    // Save public key (plaintext)
+    try {
+        std::filesystem::path pub_path = get_key_path(key_id);
+        pub_path.replace_extension(".pub");
+        
+        std::ofstream file(pub_path, std::ios::binary);
+        if (!file.is_open()) {
+            LOG_ERROR(chrono_util::LogCategory::CRYPTO, "Failed to open public key file for writing: {}", pub_path.string());
+            return false;
+        }
+        
+        file.write(reinterpret_cast<const char*>(keys.public_key.data()), keys.public_key.size());
+        file.close();
+        
+        return true;
+    } catch (const std::exception& e) {
+        LOG_ERROR(chrono_util::LogCategory::CRYPTO, "Error saving public key: {}", e.what());
+        return false;
+    }
+}
+
+std::optional<KeyManager::KeyPair> KeyManager::load_key_pair(const std::string& key_id, const std::string& passphrase) {
+    // Load private key
+    chrono_util::Bytes private_key = load_private_key(key_id, passphrase);
+    if (private_key.empty()) {
+        return std::nullopt;
+    }
+
+    // Load public key
+    try {
+        std::filesystem::path pub_path = get_key_path(key_id);
+        pub_path.replace_extension(".pub");
+        
+        if (!std::filesystem::exists(pub_path)) {
+            LOG_WARN(chrono_util::LogCategory::CRYPTO, "Public key file not found: {}", pub_path.string());
+            // Fallback: Try to extract from private key (deprecated/unsafe but might work for legacy keys if format allows)
+            // But we know it fails for liboqs. So we return nullopt or partial?
+            // Returning nullopt forces user to regenerate or migrate.
+            return std::nullopt;
+        }
+        
+        std::ifstream file(pub_path, std::ios::binary);
+        if (!file.is_open()) {
+            LOG_ERROR(chrono_util::LogCategory::CRYPTO, "Failed to open public key file: {}", pub_path.string());
+            return std::nullopt;
+        }
+        
+        file.seekg(0, std::ios::end);
+        size_t file_size = file.tellg();
+        file.seekg(0, std::ios::beg);
+        
+        chrono_util::Bytes public_key(file_size);
+        file.read(reinterpret_cast<char*>(public_key.data()), file_size);
+        file.close();
+        
+        return KeyPair{public_key, private_key};
+        
+    } catch (const std::exception& e) {
+        LOG_ERROR(chrono_util::LogCategory::CRYPTO, "Error loading public key: {}", e.what());
+        return std::nullopt;
+    }
+}
+
+bool KeyManager::save_private_key(const std::string& key_id, const chrono_util::Bytes& private_key, const std::string& passphrase) {
     try {
         std::filesystem::path key_path = get_key_path(key_id);
         
@@ -113,8 +302,46 @@ bool KeyManager::save_private_key(const std::string& key_id, const chrono_util::
             return false;
         }
         
-        // Write the raw key bytes
-        file.write(reinterpret_cast<const char*>(private_key.data()), private_key.size());
+        if (passphrase.empty()) {
+            // Legacy plaintext save
+            file.write(reinterpret_cast<const char*>(private_key.data()), private_key.size());
+        } else {
+            // Encrypted save
+            // Format: MAGIC (4) | SALT (32) | IV (12) | TAG (16) | CIPHERTEXT (variable)
+            const char* magic = "CKEY";
+            file.write(magic, 4);
+
+            // Generate Salt
+            chrono_util::Bytes salt(32);
+            OQS_randombytes(salt.data(), 32);
+            file.write(reinterpret_cast<const char*>(salt.data()), 32);
+
+            // Derive Key
+            chrono_util::Bytes encryption_key = derive_key(passphrase, salt);
+
+            // Generate IV
+            chrono_util::Bytes iv(AESCrypto::IV_SIZE);
+            OQS_randombytes(iv.data(), AESCrypto::IV_SIZE);
+            file.write(reinterpret_cast<const char*>(iv.data()), AESCrypto::IV_SIZE);
+
+            // Encrypt
+            auto result = AESCrypto::encrypt(encryption_key, iv, private_key);
+            if (!result) {
+                LOG_ERROR(chrono_util::LogCategory::CRYPTO, "Encryption failed for key: {}", key_id);
+                return false;
+            }
+
+            // Result contains ciphertext + tag (appended)
+            // Write Tag (last 16 bytes)
+            size_t tag_size = AESCrypto::TAG_SIZE;
+            size_t ciphertext_size = result->size() - tag_size;
+            const uint8_t* tag_ptr = result->data() + ciphertext_size;
+            file.write(reinterpret_cast<const char*>(tag_ptr), tag_size);
+
+            // Write Ciphertext
+            file.write(reinterpret_cast<const char*>(result->data()), ciphertext_size);
+        }
+
         file.close();
         
         // Set restrictive permissions (readable/writable by owner only)
@@ -132,7 +359,7 @@ bool KeyManager::save_private_key(const std::string& key_id, const chrono_util::
     }
 }
 
-chrono_util::Bytes KeyManager::load_private_key(const std::string& key_id) {
+chrono_util::Bytes KeyManager::load_private_key(const std::string& key_id, const std::string& passphrase) {
     // Check cache first
     auto it = key_cache_.find(key_id);
     if (it != key_cache_.end()) {
@@ -164,11 +391,53 @@ chrono_util::Bytes KeyManager::load_private_key(const std::string& key_id) {
         file.read(reinterpret_cast<char*>(key.data()), file_size);
         file.close();
         
-        // Cache the loaded key
-        key_cache_[key_id] = key;
-        
-        LOG_INFO(chrono_util::LogCategory::CRYPTO, "Private key loaded: {} ({} bytes)", key_id, file_size);
-        return key;
+        // Check magic
+        if (file_size > 4 && std::memcmp(key.data(), "CKEY", 4) == 0) {
+            // Encrypted
+            if (passphrase.empty()) {
+                LOG_ERROR(chrono_util::LogCategory::CRYPTO, "Key {} is encrypted but no passphrase provided", key_id);
+                return chrono_util::Bytes();
+            }
+
+            size_t offset = 4;
+            // Read Salt
+            if (offset + 32 > file_size) return chrono_util::Bytes();
+            chrono_util::Bytes salt(key.begin() + offset, key.begin() + offset + 32);
+            offset += 32;
+
+            // Read IV
+            if (offset + AESCrypto::IV_SIZE > file_size) return chrono_util::Bytes();
+            chrono_util::Bytes iv(key.begin() + offset, key.begin() + offset + AESCrypto::IV_SIZE);
+            offset += AESCrypto::IV_SIZE;
+
+            // Read Tag
+            if (offset + AESCrypto::TAG_SIZE > file_size) return chrono_util::Bytes();
+            chrono_util::Bytes tag(key.begin() + offset, key.begin() + offset + AESCrypto::TAG_SIZE);
+            offset += AESCrypto::TAG_SIZE;
+
+            // Read Ciphertext
+            chrono_util::Bytes ciphertext(key.begin() + offset, key.end());
+
+            // Derive Key
+            chrono_util::Bytes encryption_key = derive_key(passphrase, salt);
+
+            // Decrypt
+            auto plaintext = AESCrypto::decrypt(encryption_key, iv, ciphertext, tag);
+            if (!plaintext) {
+                LOG_ERROR(chrono_util::LogCategory::CRYPTO, "Decryption failed for key: {} (Wrong passphrase?)", key_id);
+                return chrono_util::Bytes();
+            }
+            
+            key_cache_[key_id] = *plaintext;
+            return *plaintext;
+        } else {
+            // Plaintext (Legacy)
+            if (!passphrase.empty()) {
+                LOG_WARN(chrono_util::LogCategory::CRYPTO, "Passphrase provided for plaintext key {}", key_id);
+            }
+            key_cache_[key_id] = key;
+            return key;
+        }
         
     } catch (const std::exception& e) {
         LOG_ERROR(chrono_util::LogCategory::CRYPTO, "Error loading private key: {}", e.what());
@@ -212,6 +481,22 @@ std::vector<std::string> KeyManager::list_keys() {
     }
     
     return keys;
+}
+
+bool KeyManager::import_key(const std::string& key_id, const chrono_util::Bytes& private_key, const std::string& passphrase) {
+    if (key_exists(key_id)) {
+        LOG_WARN(chrono_util::LogCategory::CRYPTO, "Key already exists: {}", key_id);
+        return false;
+    }
+    return save_private_key(key_id, private_key, passphrase);
+}
+
+std::optional<chrono_util::Bytes> KeyManager::export_key(const std::string& key_id) {
+    chrono_util::Bytes key = load_private_key(key_id);
+    if (key.empty()) {
+        return std::nullopt;
+    }
+    return key;
 }
 
 } // namespace chrono_crypto

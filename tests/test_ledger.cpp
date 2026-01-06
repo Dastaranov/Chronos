@@ -60,7 +60,7 @@ void test_ledger_logic() {
     state.credit(addr1.to_string(), 1000); // Give addr1 1000 units
 
     // Create a transaction from addr1 to addr2
-    chrono_ledger::Transaction tx(addr1, addr2, 100, 10, 0); ///< @var tx A new transaction: addr1 sends 100 to addr2 with a 10 unit fee.
+    chrono_ledger::Transaction tx(addr1, addr2, 100, 10, 0, signer1.get_public_key()); ///< @var tx A new transaction: addr1 sends 100 to addr2 with a 10 unit fee.
     // Sign the transaction using signer1's private key
     tx.signature = signer1.sign(tx.get_hash_for_signing());
 

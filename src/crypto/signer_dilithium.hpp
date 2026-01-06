@@ -51,7 +51,17 @@ public:
     SignerDilithium();
 
     /**
+     * @brief Constructs a SignerDilithium object from an existing key pair.
+     *
+     * @param public_key_bytes The public key to use for this signer.
+     * @param private_key_bytes The private key to use for this signer.
+     */
+    SignerDilithium(const Bytes& public_key_bytes, const Bytes& private_key_bytes);
+
+    /**
      * @brief Constructs a SignerDilithium object from an existing private key.
+     * @deprecated This constructor is unsafe as it cannot reliably recover the public key from the private key with liboqs.
+     *             Use the constructor taking both keys instead.
      *
      * @param private_key_bytes The private key to use for this signer.
      */

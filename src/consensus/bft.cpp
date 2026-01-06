@@ -20,6 +20,7 @@
 #include "util/log.hpp"
 #include "util/bytes.hpp"
 #include "crypto/blake3.hpp" // NEW: For hash_blake3_bytes
+#include <cstring> // For memcpy
 
 namespace chrono_consensus {
 
@@ -33,14 +34,17 @@ namespace chrono_consensus {
  * @param my_validator_id The identifier for this node, which should be part of the validator set.
  * @param quorum_threshold The proportion of votes required for a quorum (e.g., 0.67 for 2/3). Must be between 0.5 and 1.0.
  * @param round_timeout_ms Timeout duration in milliseconds for a consensus round.
+ * @param time_tier_provider Function to retrieve the current time tier of the node.
  * @throws std::invalid_argument if quorum_threshold is not between 0.5 and 1.0.
  */
 BftGadget::BftGadget(const std::set<std::string>& validators, const std::string& my_validator_id, 
-                     double quorum_threshold, int round_timeout_ms)
+                     double quorum_threshold, int round_timeout_ms,
+                     std::function<uint32_t()> time_tier_provider)
     : validators_(validators),
       my_validator_id_(my_validator_id),
       quorum_threshold_(quorum_threshold),
       round_timeout_ms_(round_timeout_ms),
+      time_tier_provider_(time_tier_provider),
       current_state_(BftState::INITIAL),
       current_height_(0),
       current_round_(0) {
@@ -99,12 +103,17 @@ bool BftGadget::is_validator(const std::string& validator_id) const {
  *
  * @param prevote The Prevote message to handle.
  * @return A `Precommit` message if the node is ready to precommit, otherwise `std::nullopt`.
- *         (Note: Currently returns nullopt as signing logic is a TODO).
  */
 std::optional<chronos::bft::Precommit> BftGadget::handle_prevote(const chronos::bft::Prevote& prevote) {
     // 1. Validator check
     if (!is_validator(prevote.validator_id())) {
         LOG_WARN(chrono_util::LogCategory::CONSENSUS, "Received prevote from unknown validator: {}", prevote.validator_id());
+        return std::nullopt;
+    }
+
+    // Check time_tier
+    if (prevote.time_tier() > 4) {
+        LOG_WARN(chrono_util::LogCategory::CONSENSUS, "Received prevote from validator {} with insufficient time tier: {}", prevote.validator_id(), prevote.time_tier());
         return std::nullopt;
     }
     
@@ -121,9 +130,12 @@ std::optional<chronos::bft::Precommit> BftGadget::handle_prevote(const chronos::
         return std::nullopt;
     }
     
-    // 4. Duplicate detection (ignore if we already have a prevote from this validator)
+    // 4. Duplicate detection (Equivocation check)
     if (has_prevote_from_validator(prevote.validator_id())) {
-        LOG_WARN(chrono_util::LogCategory::CONSENSUS, "Received duplicate prevote from {}", prevote.validator_id());
+        LOG_WARN(chrono_util::LogCategory::CONSENSUS, "Received duplicate prevote from {} (Potential Equivocation - Slashing candidate)", prevote.validator_id());
+        if (slash_callback_) {
+            slash_callback_(prevote.validator_id(), 1000000000, "Equivocation: Double Prevote");
+        }
         return std::nullopt;
     }
 
@@ -190,12 +202,18 @@ std::optional<chronos::bft::Precommit> BftGadget::handle_prevote(const chronos::
  *
  * @param precommit The Precommit message to handle.
  * @return The finalized `Block` if a quorum is reached, otherwise `std::nullopt`.
- *         (Note: Currently returns nullopt; finalization handled by NodeApp via check_precommit_quorum()).
+ *         (Finalization is handled by NodeApp via check_precommit_quorum()).
  */
 std::optional<chrono_ledger::Block> BftGadget::handle_precommit(const chronos::bft::Precommit& precommit) {
     // 1. Validator check
     if (!is_validator(precommit.validator_id())) {
         LOG_WARN(chrono_util::LogCategory::CONSENSUS, "Received precommit from unknown validator: {}", precommit.validator_id());
+        return std::nullopt;
+    }
+
+    // Check time_tier
+    if (precommit.time_tier() > 4) {
+        LOG_WARN(chrono_util::LogCategory::CONSENSUS, "Received precommit from validator {} with insufficient time tier: {}", precommit.validator_id(), precommit.time_tier());
         return std::nullopt;
     }
     
@@ -212,9 +230,12 @@ std::optional<chrono_ledger::Block> BftGadget::handle_precommit(const chronos::b
         return std::nullopt;
     }
     
-    // 4. Duplicate detection (ignore if we already have a precommit from this validator)
+    // 4. Duplicate detection (Equivocation check)
     if (has_precommit_from_validator(precommit.validator_id())) {
-        LOG_WARN(chrono_util::LogCategory::CONSENSUS, "Received duplicate precommit from {}", precommit.validator_id());
+        LOG_WARN(chrono_util::LogCategory::CONSENSUS, "Received duplicate precommit from {} (Potential Equivocation - Slashing candidate)", precommit.validator_id());
+        if (slash_callback_) {
+            slash_callback_(precommit.validator_id(), 1000000000, "Equivocation: Double Precommit");
+        }
         return std::nullopt;
     }
 
@@ -271,7 +292,6 @@ std::optional<chrono_ledger::Block> BftGadget::handle_precommit(const chronos::b
  *
  * @param new_round The NewRound message to handle.
  * @return A `Prevote` message if this node decides to vote for the new proposal, otherwise `std::nullopt`.
- *         (Note: Currently returns nullopt as block proposal/validation logic is a TODO).
  */
 std::optional<chronos::bft::Prevote> BftGadget::handle_new_round(const chronos::bft::NewRound& new_round) {
     // 1. Validator check
@@ -279,11 +299,26 @@ std::optional<chronos::bft::Prevote> BftGadget::handle_new_round(const chronos::
         LOG_WARN(chrono_util::LogCategory::CONSENSUS, "Received new round from unknown validator: {}", new_round.validator_id());
         return std::nullopt;
     }
+
+    // Check time_tier
+    if (new_round.time_tier() > 4) {
+        LOG_WARN(chrono_util::LogCategory::CONSENSUS, "Received new round from validator {} with insufficient time tier: {}", new_round.validator_id(), new_round.time_tier());
+        return std::nullopt;
+    }
     
     // 2. Round progression check
     if (new_round.height() < current_height_ || (new_round.height() == current_height_ && new_round.round() < current_round_)) {
         LOG_WARN(chrono_util::LogCategory::CONSENSUS, "Received old new round message: {}/{} vs current {}/{}",
                  new_round.height(), new_round.round(), current_height_, current_round_);
+        return std::nullopt;
+    }
+    
+    bool is_same_round = (new_round.height() == current_height_ && new_round.round() == current_round_);
+
+    // Ignore duplicate NewRound for current round ONLY if we already have the proposal hash
+    if (is_same_round && expected_proposal_hash_.has_value()) {
+        LOG_DEBUG(chrono_util::LogCategory::CONSENSUS, "Received duplicate NewRound message for {}/{}. Ignoring.",
+                  new_round.height(), new_round.round());
         return std::nullopt;
     }
     
@@ -297,21 +332,37 @@ std::optional<chronos::bft::Prevote> BftGadget::handle_new_round(const chronos::
         return std::nullopt;
     }
 
-    // Advance to new round and clear previous votes
-    current_height_ = new_round.height();
-    current_round_ = new_round.round();
-    
-    // STATE TRANSITION: NEW_ROUND
-    // A valid NewRound message from the leader transitions us to NEW_ROUND state.
-    // We clear all accumulated votes and prepare to receive a new block proposal.
-    current_state_ = BftState::NEW_ROUND;
-    
-    // Reset round start time for timeout tracking
-    round_start_time_ = std::chrono::steady_clock::now();
-    
-    clear_proposed_block();
-    received_prevotes_.clear();
-    received_precommits_.clear();
+    if (!is_same_round) {
+        // Advance to new round and clear previous votes
+        current_height_ = new_round.height();
+        current_round_ = new_round.round();
+        
+        // STATE TRANSITION: NEW_ROUND
+        // A valid NewRound message from the leader transitions us to NEW_ROUND state.
+        // We clear all accumulated votes and prepare to receive a new block proposal.
+        current_state_ = BftState::NEW_ROUND;
+        
+        // Reset round start time for timeout tracking
+        round_start_time_ = std::chrono::steady_clock::now();
+        
+        // Only clear proposal if it's for an older round/height
+        if (current_proposal_.has_value()) {
+            if (current_proposal_->height < current_height_ || 
+               (current_proposal_->height == current_height_ && current_proposal_->round < current_round_)) {
+                clear_proposed_block();
+            } else {
+                LOG_INFO(chrono_util::LogCategory::CONSENSUS, "Preserving proposal for height {} round {}", 
+                         current_proposal_->height, current_proposal_->round);
+            }
+        }
+        
+        received_prevotes_.clear();
+        received_precommits_.clear();
+    }
+
+    // Store expected proposal hash
+    chrono_util::Bytes proposal_hash_bytes(new_round.proposal_block_hash().begin(), new_round.proposal_block_hash().end());
+    expected_proposal_hash_ = proposal_hash_bytes;
 
     // POL (Proof-of-Lock) logic: Unlock block only if moving to a higher round
     // This ensures safety - once locked, we remain committed unless we see proof
@@ -330,12 +381,41 @@ std::optional<chronos::bft::Prevote> BftGadget::handle_new_round(const chronos::
         }
     }
 
-    LOG_INFO(chrono_util::LogCategory::CONSENSUS, "Advanced to new round {}/{} from leader {}", 
+    LOG_INFO(chrono_util::LogCategory::CONSENSUS, "Processed NewRound {}/{} from leader {}", 
              current_height_, current_round_, new_round.validator_id());
 
-    // TODO: If this node is the leader, propose a block. If not, wait for proposal.
+    // If we already have the block (e.g. received via gossip before NewRound, or we are leader), process it now
+    if (current_proposal_.has_value()) {
+        if (current_proposal_->get_header_hash() == proposal_hash_bytes) {
+             // We have the block and it matches!
+             // Create prevote
+             return create_prevote(proposal_hash_bytes);
+        } else {
+             // Mismatch! Clear current proposal as it's wrong for this round
+             LOG_WARN(chrono_util::LogCategory::CONSENSUS, "Proposal mismatch! Current: {}, Expected: {}", 
+                      chrono_util::bytes_to_hex(current_proposal_->get_header_hash()), chrono_util::bytes_to_hex(proposal_hash_bytes));
+             clear_proposed_block();
+        }
+    } else {
+        LOG_INFO(chrono_util::LogCategory::CONSENSUS, "No current proposal to match against expected hash {}", chrono_util::bytes_to_hex(proposal_hash_bytes));
+    }
+
+    // NodeApp handles block proposal if this node is the leader.
     // For now, return an empty optional.
     return std::nullopt;
+}
+
+void BftGadget::force_new_round(const std::string& reason) {
+    LOG_INFO(chrono_util::LogCategory::CONSENSUS, "Forcing new round: {} -> {} (Reason: {})", 
+             current_round_, current_round_ + 1, reason);
+    
+    current_round_++;
+    current_state_ = BftState::NEW_ROUND;
+    round_start_time_ = std::chrono::steady_clock::now();
+    
+    clear_proposed_block();
+    received_prevotes_.clear();
+    received_precommits_.clear();
 }
 
 /**
@@ -622,15 +702,21 @@ std::optional<chronos::bft::Prevote> BftGadget::create_prevote(const chrono_util
     chronos::bft::Prevote prevote;
     prevote.set_height(current_height_);
     prevote.set_round(current_round_);
-    prevote.set_block_hash(chrono_util::bytes_to_hex(block_hash));
+    prevote.set_block_hash(block_hash.data(), block_hash.size());
     prevote.set_validator_id(my_validator_id_);
+    prevote.set_time_tier(time_tier_provider_());
 
-    // Serialize the prevote for signing (without signature field)
-    std::string serialized = prevote.SerializeAsString();
-    chrono_util::Bytes message_bytes(serialized.begin(), serialized.end());
+    // Compute canonical message hash for signing
+    chrono_util::Bytes message_hash = compute_bft_message_hash(
+        current_height_,
+        current_round_,
+        block_hash,
+        my_validator_id_,
+        prevote.time_tier()
+    );
 
-    // Sign the message
-    chrono_util::Bytes signature = signer_->sign(message_bytes);
+    // Sign the message hash
+    chrono_util::Bytes signature = signer_->sign(message_hash);
 
     // Set the signature in the protobuf
     auto* sig_proto = prevote.mutable_signature();
@@ -662,15 +748,21 @@ std::optional<chronos::bft::Precommit> BftGadget::create_precommit(const chrono_
     chronos::bft::Precommit precommit;
     precommit.set_height(current_height_);
     precommit.set_round(current_round_);
-    precommit.set_block_hash(chrono_util::bytes_to_hex(block_hash));
+    precommit.set_block_hash(block_hash.data(), block_hash.size());
     precommit.set_validator_id(my_validator_id_);
+    precommit.set_time_tier(time_tier_provider_());
 
-    // Serialize the precommit for signing (without signature field)
-    std::string serialized = precommit.SerializeAsString();
-    chrono_util::Bytes message_bytes(serialized.begin(), serialized.end());
+    // Compute canonical message hash for signing
+    chrono_util::Bytes message_hash = compute_bft_message_hash(
+        current_height_,
+        current_round_,
+        block_hash,
+        my_validator_id_,
+        precommit.time_tier()
+    );
 
-    // Sign the message
-    chrono_util::Bytes signature = signer_->sign(message_bytes);
+    // Sign the message hash
+    chrono_util::Bytes signature = signer_->sign(message_hash);
 
     // Set the signature in the protobuf
     auto* sig_proto = precommit.mutable_signature();
@@ -754,6 +846,7 @@ chronos::bft::NewRound BftGadget::advance_to_next_round() {
     new_round.set_height(current_height_);
     new_round.set_round(current_round_);
     new_round.set_validator_id(my_validator_id_);
+    new_round.set_time_tier(time_tier_provider_());
     
     // TODO: In production, attach POL (Proof-of-Lock) if we have a locked block
     // This would include precommit signatures from the round where the block was locked
@@ -805,6 +898,79 @@ void BftGadget::advance_to_next_height(uint64_t new_height) {
     
     // NOTE: locked_block_ is intentionally maintained across height transitions
     // This preserves the Proof-of-Lock (POL) mechanism in BFT consensus
+}
+
+void BftGadget::update_validators(const std::set<std::string>& new_validators) {
+    validators_ = new_validators;
+    LOG_INFO(chrono_util::LogCategory::CONSENSUS, "Updated validator set. New size: {}", validators_.size());
+}
+
+std::optional<chronos::bft::Prevote> BftGadget::on_block_received(const chrono_ledger::Block& block) {
+    // Check height/round
+    if (block.height != current_height_ || block.round != current_round_) {
+        LOG_WARN(chrono_util::LogCategory::CONSENSUS, "Received block for wrong height/round: {}/{} vs current {}/{}",
+                 block.height, block.round, current_height_, current_round_);
+        return std::nullopt;
+    }
+
+    // Store as current proposal (optimistically)
+    set_proposed_block(block);
+
+    // Check if we are expecting a proposal
+    if (!expected_proposal_hash_.has_value()) {
+        LOG_DEBUG(chrono_util::LogCategory::CONSENSUS, "Received block but not expecting a proposal yet (no NewRound). Stored for later.");
+        return std::nullopt;
+    }
+    
+    // Check if block matches expected hash
+    if (block.get_header_hash() != expected_proposal_hash_.value()) {
+        LOG_WARN(chrono_util::LogCategory::CONSENSUS, "Received block hash mismatch. Expected: {}, Got: {}", 
+                 chrono_util::bytes_to_hex(expected_proposal_hash_.value()), 
+                 chrono_util::bytes_to_hex(block.get_header_hash()));
+        return std::nullopt;
+    }
+    
+    // Create prevote
+    return create_prevote(expected_proposal_hash_.value());
+}
+
+chrono_util::Bytes BftGadget::compute_bft_message_hash(uint64_t height, uint32_t round, 
+                                                      const chrono_util::Bytes& block_hash, 
+                                                      const std::string& validator_id,
+                                                      uint32_t time_tier) const {
+    // Serialize message components: height (8) || round (4) || block_hash || validator_id_len (4) || validator_id || time_tier (4)
+    std::vector<uint8_t> message;
+    
+    // Height (uint64, little-endian)
+    uint8_t height_bytes[8];
+    std::memcpy(height_bytes, &height, 8);
+    message.insert(message.end(), height_bytes, height_bytes + 8);
+    
+    // Round (uint32, little-endian)
+    uint8_t round_bytes[4];
+    std::memcpy(round_bytes, &round, 4);
+    message.insert(message.end(), round_bytes, round_bytes + 4);
+    
+    // Block hash (32 bytes)
+    message.insert(message.end(), block_hash.begin(), block_hash.end());
+    
+    // Validator ID length (uint32, little-endian)
+    uint32_t validator_id_len = validator_id.size();
+    uint8_t len_bytes[4];
+    std::memcpy(len_bytes, &validator_id_len, 4);
+    message.insert(message.end(), len_bytes, len_bytes + 4);
+    
+    // Validator ID string
+    message.insert(message.end(), validator_id.begin(), validator_id.end());
+
+    // Time Tier (uint32, little-endian)
+    uint8_t tier_bytes[4];
+    std::memcpy(tier_bytes, &time_tier, 4);
+    message.insert(message.end(), tier_bytes, tier_bytes + 4);
+    
+    // Hash the entire message with Blake3
+    chrono_util::Bytes message_bytes(message.begin(), message.end());
+    return chrono_crypto::blake3(message_bytes);
 }
 
 } // namespace chrono_consensus

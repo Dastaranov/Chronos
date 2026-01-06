@@ -34,7 +34,9 @@ enum class TimeSource {
     LOCAL_OS,       ///< Timestamp from the local operating system clock.
     PTP,            ///< Precision Time Protocol source.
     GPS,            ///< Global Positioning System time source.
-    NETWORK_API     ///< Timestamp from a general network time API (e.g., TimeAPI.io)
+    NETWORK_API,    ///< Timestamp from a general network time API (e.g., TimeAPI.io)
+    CHRONY_NTS,     ///< Authenticated time from Chrony (NTS)
+    ATOMIC_CLOCK    ///< Direct connection to an atomic clock
 };
 
 /**
@@ -49,10 +51,12 @@ struct TimeMeasurement {
     TimeSource source;   ///< The source from which the timestamp was obtained.
     double confidence;   ///< A confidence score (0.0 to 1.0) indicating the trustworthiness of this measurement.
     double error_ms;     ///< Estimated error margin in milliseconds.
+    uint8_t tier;        ///< Security tier (1=Atomic, 2=NTS, 3=NTP, 4=Local)
+    std::vector<uint8_t> signature; ///< Digital signature for Tier 1/2
 
     // Default constructor
-    TimeMeasurement(uint64_t ts = 0, TimeSource src = TimeSource::UNKNOWN, double conf = 0.5, double err = 0.0)
-        : timestamp(ts), source(src), confidence(conf), error_ms(err) {}
+    TimeMeasurement(uint64_t ts = 0, TimeSource src = TimeSource::UNKNOWN, double conf = 0.5, double err = 0.0, uint8_t t = 4)
+        : timestamp(ts), source(src), confidence(conf), error_ms(err), tier(t) {}
 };
 
 /**
@@ -99,6 +103,13 @@ public:
      * @return The calculated consensus time as a 64-bit unsigned integer.
      */
     uint64_t get_consensus_time() const;
+
+    /**
+     * @brief Verifies if a measurement is statistically plausible.
+     * @param tm The measurement to verify.
+     * @return True if plausible, false if likely spoofed.
+     */
+    bool verify_measurement(const TimeMeasurement& tm) const;
 
 private:
     double mad_factor_; ///< @var mad_factor_ The Median Absolute Deviation factor used for outlier detection.

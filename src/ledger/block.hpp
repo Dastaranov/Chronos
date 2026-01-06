@@ -47,11 +47,13 @@ class Block {
 public:
     // Block Header
     Bytes prev_block_hash; ///< @var prev_block_hash The hash of the previous block in the blockchain, linking blocks together.
-    uint64_t timestamp; ///< @var timestamp The Unix timestamp (in milliseconds) when the block was created.
+    uint64_t timestamp = 0; ///< @var timestamp The Unix timestamp (in milliseconds) when the block was created.
     Bytes transactions_merkle_root; ///< @var transactions_merkle_root The Merkle root of all transactions included in this block, ensuring transaction integrity.
-    uint64_t height; ///< @var height The block number or height in the blockchain, with the genesis block typically being 0.
-    uint64_t consensus_time; ///< @var consensus_time The aggregated Proof-of-Time consensus time when the block was created.
-    uint32_t round; ///< @var round The BFT round in which this block was proposed/finalized.
+    uint64_t height = 0; ///< @var height The block number or height in the blockchain, with the genesis block typically being 0.
+    uint64_t consensus_time = 0; ///< @var consensus_time The aggregated Proof-of-Time consensus time when the block was created.
+    uint32_t round = 0; ///< @var round The BFT round in which this block was proposed/finalized.
+    uint32_t time_tier = 5; ///< @var time_tier The Time Tier of the block proposer (1=Quantum, 2=Atomic, ..., 5=NTP).
+    uint32_t time_quality_score = 0; ///< @var time_quality_score The Time Quality Score of the proposer (0-100).
 
     // Block Body
     std::vector<Transaction> transactions; ///< @var transactions A list of all transactions included in this block.
@@ -75,9 +77,11 @@ public:
      * @param height The height of this new block in the blockchain.
      * @param consensus_time The aggregated Proof-of-Time consensus time.
      * @param round The BFT round number.
+     * @param time_tier The Time Tier of the proposer.
+     * @param time_quality_score The Time Quality Score of the proposer.
      * @param txs A vector of `Transaction` objects to be included in this block.
      */
-    Block(const Bytes& prev_hash, uint64_t height, uint64_t consensus_time, uint32_t round, const std::vector<Transaction>& txs);
+    Block(const Bytes& prev_hash, uint64_t height, uint64_t consensus_time, uint32_t round, uint32_t time_tier, uint32_t time_quality_score, const std::vector<Transaction>& txs);
 
     /**
      * @brief Calculates the cryptographic hash of the block header.

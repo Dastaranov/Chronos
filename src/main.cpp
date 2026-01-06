@@ -1,6 +1,7 @@
 #include "node/node_app.hpp"
 #include "node/config.hpp"
 #include "util/log.hpp"
+#include "util/system_lock.hpp"
 #include <iostream>
 #include <string>
 
@@ -18,6 +19,10 @@ int main(int argc, char** argv) {
     LOG_INIT(".");
 
     try {
+        // System-wide lock to prevent multiple instances on the same machine
+        // This prevents accidental double-starts and basic Sybil attempts on one machine
+        chrono_util::SystemLock lock("/tmp/chronos_guard.lock");
+
         // Construct Node by configfile
         chrono_node::Config cfg = chrono_node::Config::load(config_path);
         // Initialize Node
@@ -25,6 +30,7 @@ int main(int argc, char** argv) {
         app.run();
     } catch (const std::exception& e) {
         LOG_ERROR(chrono_util::LogCategory::GENERAL, "Failed to start node: {}", e.what());
+        std::cerr << "Error: " << e.what() << std::endl;
         return 1;
     }
 

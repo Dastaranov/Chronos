@@ -107,6 +107,15 @@ public:
     bool publish(const std::string& topic, const Bytes& msg) override;
 
     /**
+     * @brief Sends a message directly to a specific peer.
+     *
+     * @param peer_id The identifier of the peer (e.g., "ip:port").
+     * @param msg The message data as a `Bytes` object.
+     * @return `true` if the message was successfully sent, `false` otherwise.
+     */
+    bool send_direct(const std::string& peer_id, const Bytes& msg) override;
+
+    /**
      * @brief Sets the callback function for handling incoming messages.
      *
      * This method registers a `MsgHandler` callback that will be invoked whenever

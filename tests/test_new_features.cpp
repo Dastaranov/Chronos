@@ -41,7 +41,7 @@ void test_nonce_tracking() {
     state.credit(from_addr.to_string(), 500);
     
     // Create and apply transaction
-    chrono_ledger::Transaction tx(from_addr, to_addr, 100, 10, 0);
+    chrono_ledger::Transaction tx(from_addr, to_addr, 100, 10, 0, signer.get_public_key());
     tx.signature = signer.sign(tx.get_hash_for_signing());
     
     state.apply_transaction(tx);

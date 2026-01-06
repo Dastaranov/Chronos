@@ -1,0 +1,25 @@
+syntax = "proto3";
+package chrono_ledger_proto;
+
+message Transaction {
+    uint32 type = 1;
+    string sender = 2;
+    string recipient = 3;
+    uint64 amount = 4;
+    uint64 fee = 5;
+    uint64 nonce = 6;
+    bytes payload = 7;
+    bytes signature = 8;
+}
+
+message Block {
+    bytes prev_block_hash = 1;
+    uint64 timestamp = 2;
+    bytes transactions_merkle_root = 3;
+    uint64 height = 4;
+    uint64 consensus_time = 5;
+    uint32 round = 6;
+    repeated Transaction transactions = 7;
+    uint32 time_tier = 8;
+    uint32 time_quality_score = 9;
+}

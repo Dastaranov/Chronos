@@ -12,6 +12,7 @@ message Prevote {
   bytes block_hash = 3; // Use bytes for hash
   string validator_id = 4;
   SignatureProto signature = 5;
+  uint32 time_tier = 6;
 }
 
 message Precommit {
@@ -20,6 +21,7 @@ message Precommit {
   bytes block_hash = 3; // Use bytes for hash
   string validator_id = 4;
   SignatureProto signature = 5;
+  uint32 time_tier = 6;
 }
 
 message NewRound {
@@ -28,4 +30,5 @@ message NewRound {
   bytes proposal_block_hash = 3; // Use bytes for hash
   string validator_id = 4;
   SignatureProto signature = 5;
+  uint32 time_tier = 6;
 }

@@ -35,7 +35,7 @@ public:
      * @brief Saves a block to storage.
      * @param block The block to save.
      */
-    virtual void saveBlock(const chrono_ledger::Block& block) = 0;
+    virtual bool saveBlock(const chrono_ledger::Block& block) = 0;
 
     /**
      * @brief Retrieves a block by its hash.
@@ -43,14 +43,15 @@ public:
      * @return An optional containing the block if found, otherwise `std::nullopt`.
      */
     virtual std::optional<chrono_ledger::Block> getBlock(const chrono_util::Bytes& block_hash) const = 0;
-    virtual std::optional<chrono_ledger::Block> getBlock(uint64_t height) const = 0; // NEW
+    virtual std::optional<chrono_ledger::Block> getBlock(uint64_t height) const = 0;
+    virtual bool hasBlock(const chrono_util::Bytes& hash) const = 0;
 
     /**
      * @brief Saves a key-value pair of blockchain-related metadata.
      * @param key The key for the metadata.
      * @param value The value of the metadata.
      */
-    virtual void saveMetadata(const chrono_util::Bytes& key, const chrono_util::Bytes& value) = 0;
+    virtual bool saveMetadata(const chrono_util::Bytes& key, const chrono_util::Bytes& value) = 0;
 
     /**
      * @brief Retrieves blockchain-related metadata by key.
