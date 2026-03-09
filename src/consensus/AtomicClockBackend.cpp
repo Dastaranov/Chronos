@@ -1,3 +1,12 @@
+//
+// Created by Dastaranov | 2025 / 2026 | Belgium
+//
+
+/**
+ * @file AtomicClockBackend.cpp
+ * @brief This file implements the AtomicClockBackend class for querying time from an atomic clock device.
+ */
+
 #include "AtomicClockBackend.hpp"
 #include "util/log.hpp"
 #include <chrono>
@@ -5,11 +14,29 @@
 
 namespace chrono_consensus {
 
+/**
+ * @class AtomicClockBackend
+ * @brief Implements querying time from an atomic clock device.
+ *
+ * 
+ * */
 AtomicClockBackend::AtomicClockBackend(const std::string& device_path) 
     : device_path_(device_path) {
     LOG_INFO(chrono_util::LogCategory::CONSENSUS, "AtomicClockBackend initialized on device: {}", device_path_);
 }
 
+
+/**
+ * @brief Queries the atomic clock device for the current time.
+ *
+ * This method simulates querying an atomic clock connected via a serial port.
+ * In a real implementation, it would read NMEA sentences from the device to get
+ * precise time information.
+ *
+ * @param server Ignored for local atomic clock devices.
+ * @return An optional TimeSample containing the queried time information.
+ * @todo Implement actual serial communication with the atomic clock device.
+ */
 std::optional<TimeSample> AtomicClockBackend::query(const std::string& /*server*/) {
     // In a real implementation, this would read from the serial port (e.g. /dev/ttyS0)
     // and parse NMEA sentences like $GPRMC or $GPZDA to get precise time.

@@ -1,5 +1,7 @@
 # Build artifacts
 build/
+build2/
+data/
 _deps/
 *.o
 *.a

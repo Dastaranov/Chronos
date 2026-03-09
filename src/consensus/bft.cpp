@@ -111,9 +111,9 @@ std::optional<chronos::bft::Precommit> BftGadget::handle_prevote(const chronos::
         return std::nullopt;
     }
 
-    // Check time_tier
-    if (prevote.time_tier() > 4) {
-        LOG_WARN(chrono_util::LogCategory::CONSENSUS, "Received prevote from validator {} with insufficient time tier: {}", prevote.validator_id(), prevote.time_tier());
+    // Check time_tier (tiers 1-5 are valid: 1=Quantum, 2=Atomic, 3=GPS, 4=NTS, 5=Plain NTP)
+    if (prevote.time_tier() == 0 || prevote.time_tier() > 5) {
+        LOG_WARN(chrono_util::LogCategory::CONSENSUS, "Received prevote from validator {} with invalid time tier: {}", prevote.validator_id(), prevote.time_tier());
         return std::nullopt;
     }
     
@@ -211,9 +211,9 @@ std::optional<chrono_ledger::Block> BftGadget::handle_precommit(const chronos::b
         return std::nullopt;
     }
 
-    // Check time_tier
-    if (precommit.time_tier() > 4) {
-        LOG_WARN(chrono_util::LogCategory::CONSENSUS, "Received precommit from validator {} with insufficient time tier: {}", precommit.validator_id(), precommit.time_tier());
+    // Check time_tier (tiers 1-5 are valid: 1=Quantum, 2=Atomic, 3=GPS, 4=NTS, 5=Plain NTP)
+    if (precommit.time_tier() == 0 || precommit.time_tier() > 5) {
+        LOG_WARN(chrono_util::LogCategory::CONSENSUS, "Received precommit from validator {} with invalid time tier: {}", precommit.validator_id(), precommit.time_tier());
         return std::nullopt;
     }
     
@@ -300,9 +300,9 @@ std::optional<chronos::bft::Prevote> BftGadget::handle_new_round(const chronos::
         return std::nullopt;
     }
 
-    // Check time_tier
-    if (new_round.time_tier() > 4) {
-        LOG_WARN(chrono_util::LogCategory::CONSENSUS, "Received new round from validator {} with insufficient time tier: {}", new_round.validator_id(), new_round.time_tier());
+    // Check time_tier (tiers 1-5 are valid: 1=Quantum, 2=Atomic, 3=GPS, 4=NTS, 5=Plain NTP)
+    if (new_round.time_tier() == 0 || new_round.time_tier() > 5) {
+        LOG_WARN(chrono_util::LogCategory::CONSENSUS, "Received new round from validator {} with invalid time tier: {}", new_round.validator_id(), new_round.time_tier());
         return std::nullopt;
     }
     
@@ -555,7 +555,8 @@ std::optional<chrono_util::Bytes> BftGadget::get_quorum_block_hash_from_prevotes
     std::map<chrono_util::Bytes, size_t> block_hash_votes;
     
     for (const auto& [validator_id, prevote] : received_prevotes_) {
-        chrono_util::Bytes prevote_hash = chrono_util::hex_to_bytes(prevote.block_hash());
+        // block_hash() is raw bytes (protobuf bytes field), not hex-encoded
+        chrono_util::Bytes prevote_hash(prevote.block_hash().begin(), prevote.block_hash().end());
         block_hash_votes[prevote_hash]++;
     }
     
@@ -589,7 +590,8 @@ std::optional<chrono_util::Bytes> BftGadget::get_quorum_block_hash_from_precommi
     std::map<chrono_util::Bytes, size_t> block_hash_votes;
     
     for (const auto& [validator_id, precommit] : received_precommits_) {
-        chrono_util::Bytes precommit_hash = chrono_util::hex_to_bytes(precommit.block_hash());
+        // block_hash() is raw bytes (protobuf bytes field), not hex-encoded
+        chrono_util::Bytes precommit_hash(precommit.block_hash().begin(), precommit.block_hash().end());
         block_hash_votes[precommit_hash]++;
     }
     
@@ -882,8 +884,9 @@ void BftGadget::advance_to_next_height(uint64_t new_height) {
     received_prevotes_.clear();
     received_precommits_.clear();
     
-    // Clear the current proposal (leader will propose fresh block for new height)
+    // Clear the current proposal and expected proposal hash for the new height
     clear_proposed_block();
+    expected_proposal_hash_ = std::nullopt;
     
     // Reset round timeout timer for the new height
     round_start_time_ = std::chrono::steady_clock::now();

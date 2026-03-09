@@ -84,8 +84,8 @@ TEST_CASE(NetworkProtocolLimits, "Network Protocol Parameters are Sensible") {
     // Node ID format limits
     ASSERT_EQ(NodeApp::MIN_NODE_ID_LENGTH, 10,
               "10 character minimum for node ID ensures reasonable identifiers");
-    ASSERT_EQ(NodeApp::MAX_NODE_ID_LENGTH, 256,
-              "256 character maximum for node ID prevents unbounded strings");
+    ASSERT_EQ(NodeApp::MAX_NODE_ID_LENGTH, 4096,
+              "4096 character maximum for node ID supports Dilithium hex-encoded public keys");
 }
 
 TEST_CASE(ValidationConstantsExist, "All Validation Constants are Defined") {

@@ -13,6 +13,7 @@
 #include <thread>
 #include <chrono>
 #include <functional>
+#include <filesystem>
 #include "node/node_app.hpp"
 #include "node/node_status.hpp"
 #include "util/log.hpp"
@@ -126,9 +127,11 @@ NodeApp::NodeApp(const chrono_node::Config& cfg)
     }
 
     // Initialize BFT gadget after signer_ is ready
+    // Validator IDs are hex-encoded public keys, matching the config validators list.
+    const std::string my_validator_id = chrono_util::bytes_to_hex(signer_->get_public_key());
     bft_ = std::make_unique<chrono_consensus::BftGadget>(
         std::set<std::string>(cfg_.validators.begin(), cfg_.validators.end()), 
-        signer_->get_address(),
+        my_validator_id,
         cfg_.bft_quorum,
         cfg_.bft_round_timeout_ms,
         [this]() { return external_time_manager_ ? external_time_manager_->get_current_tier() : 5; });
@@ -195,6 +198,13 @@ NodeApp::NodeApp(const chrono_node::Config& cfg)
     }
 
     LOG_INFO(chrono_util::LogCategory::GENERAL, "NodeApp initialized with data_dir: {}", cfg_.data_dir);
+
+    // Ensure data directory exists (create all parent directories if needed)
+    std::error_code ec;
+    std::filesystem::create_directories(cfg_.data_dir, ec);
+    if (ec) {
+        LOG_WARN(chrono_util::LogCategory::GENERAL, "Could not create data_dir '{}': {}", cfg_.data_dir, ec.message());
+    }
 
     // Set up node status identifiers and addresses based on configuration.
     status_.node_id = "ChronosNode-" + std::to_string(cfg_.listen_port);
@@ -527,9 +537,10 @@ void NodeApp::run() {
 
         // Use 0 for consensus_time to ensure deterministic leader selection matching BftGadget::handle_new_round
         std::string current_leader = bft_->get_leader_for_round(0, current_bft_height, current_bft_round);
+        const std::string my_validator_id = chrono_util::bytes_to_hex(signer_->get_public_key());
 
         // Leader logic
-        if (current_leader == signer_->get_address()) {
+        if (current_leader == my_validator_id) {
             // Check if we already proposed for this round (BftGadget will track this)
             if (!bft_->has_proposed_for_round(current_bft_height, current_bft_round)) {
                 std::vector<chrono_ledger::Transaction> transactions_for_block;
@@ -557,34 +568,35 @@ void NodeApp::run() {
                     last_block_for_proposal = last_block_hash_;
                 }
 
-                if (!transactions_for_block.empty()) {
-                    LOG_INFO(chrono_util::LogCategory::CONSENSUS, "[{}] I am the leader for height {} round {}. Proposing block with {} transactions.",
-                             status_.node_id, current_bft_height, current_bft_round, transactions_for_block.size());
+                // Leaders always propose a block, even when the mempool is empty.
+                // This keeps the chain advancing and prevents consensus from stalling.
+                LOG_INFO(chrono_util::LogCategory::CONSENSUS, "[{}] I am the leader for height {} round {}. Proposing block with {} transactions.",
+                         status_.node_id, current_bft_height, current_bft_round, transactions_for_block.size());
 
-                    // Get current time tier and score
-                    uint32_t current_tier = external_time_manager_->get_current_tier();
-                    uint32_t current_score = static_cast<uint32_t>(external_time_manager_->get_time_quality_score());
+                // Get current time tier and score
+                uint32_t current_tier = external_time_manager_->get_current_tier();
+                uint32_t current_score = static_cast<uint32_t>(external_time_manager_->get_time_quality_score());
 
-                    // Create a new block
-                    Block new_block(last_block_for_proposal, current_bft_height, current_consensus_time, current_bft_round, current_tier, current_score, transactions_for_block);
-                    
-                    // Create a Protobuf NewRound message
-                    chronos::bft::NewRound new_round_msg_proto;
-                    new_round_msg_proto.set_height(current_bft_height);
-                    new_round_msg_proto.set_round(current_bft_round);
-                    new_round_msg_proto.set_proposal_block_hash(new_block.get_header_hash().data(), new_block.get_header_hash().size());
-                    new_round_msg_proto.set_validator_id(signer_->get_address());
-                    new_round_msg_proto.set_time_tier(current_tier);
-                    
-                    chrono_util::Bytes message_hash = compute_bft_message_hash(
-                        current_bft_height,
-                        current_bft_round,
-                        new_block.get_header_hash(),
-                        signer_->get_address(),
-                        current_tier
-                    );
-                    chrono_util::Bytes signed_data = signer_->sign_message(message_hash);
-                    new_round_msg_proto.mutable_signature()->set_data(signed_data.data(), signed_data.size());
+                // Create a new block
+                Block new_block(last_block_for_proposal, current_bft_height, current_consensus_time, current_bft_round, current_tier, current_score, transactions_for_block);
+                
+                // Create a Protobuf NewRound message
+                chronos::bft::NewRound new_round_msg_proto;
+                new_round_msg_proto.set_height(current_bft_height);
+                new_round_msg_proto.set_round(current_bft_round);
+                new_round_msg_proto.set_proposal_block_hash(new_block.get_header_hash().data(), new_block.get_header_hash().size());
+                new_round_msg_proto.set_validator_id(my_validator_id);
+                new_round_msg_proto.set_time_tier(current_tier);
+                
+                chrono_util::Bytes message_hash = compute_bft_message_hash(
+                    current_bft_height,
+                    current_bft_round,
+                    new_block.get_header_hash(),
+                    my_validator_id,
+                    current_tier
+                );
+                chrono_util::Bytes signed_data = signer_->sign_message(message_hash);
+                new_round_msg_proto.mutable_signature()->set_data(signed_data.data(), signed_data.size());
 
                     // Inform BFT gadget that this node has proposed a block
                     bft_->set_proposed_block(new_block);
@@ -605,12 +617,32 @@ void NodeApp::run() {
                         prevote_proto->set_round(self_prevote->round());
                         prevote_proto->set_block_hash(self_prevote->block_hash().data(), self_prevote->block_hash().size());
                         prevote_proto->set_validator_id(self_prevote->validator_id());
+                        prevote_proto->set_time_tier(self_prevote->time_tier());
                         prevote_proto->mutable_signature()->set_data(self_prevote->signature().data().c_str(), self_prevote->signature().data().size());
                         gossip_->publish("prevote", prevote_envelope);
                         LOG_INFO(chrono_util::LogCategory::P2P, "Published self-generated Prevote for height {} round {}", self_prevote->height(), self_prevote->round());
                         
-                        // Add own vote to BFT gadget
-                        bft_->handle_prevote(*self_prevote);
+                        // Add own vote to BFT gadget; handle precommit if quorum reached
+                        if (auto precommit = bft_->handle_prevote(*self_prevote)) {
+                            P2PMessage precommit_envelope;
+                            auto* precommit_proto = precommit_envelope.mutable_precommit();
+                            precommit_proto->set_height(precommit->height());
+                            precommit_proto->set_round(precommit->round());
+                            precommit_proto->set_block_hash(precommit->block_hash().data(), precommit->block_hash().size());
+                            precommit_proto->set_validator_id(precommit->validator_id());
+                            precommit_proto->set_time_tier(precommit->time_tier());
+                            precommit_proto->mutable_signature()->set_data(precommit->signature().data().c_str(), precommit->signature().data().size());
+                            gossip_->publish("precommit", precommit_envelope);
+                            LOG_INFO(chrono_util::LogCategory::CONSENSUS, "Broadcasted Precommit for height {} round {}",
+                                     precommit->height(), precommit->round());
+
+                            // Handle own precommit — finalize block if quorum reached
+                            if (auto finalized_block = bft_->handle_precommit(*precommit)) {
+                                LOG_INFO(chrono_util::LogCategory::CONSENSUS, "Finalizing block {} at height {}",
+                                         bytes_to_hex(finalized_block->get_header_hash()), finalized_block->height);
+                                add_block(*finalized_block);
+                            }
+                        }
                     }
 
                     // Publish the block itself for followers to validate
@@ -619,11 +651,6 @@ void NodeApp::run() {
                     broadcast_message("blocks", block_envelope);
                     LOG_INFO(chrono_util::LogCategory::P2P, "Published new proposed block {} to network.", bytes_to_hex(new_block.get_header_hash()));
 
-                } else {
-                    LOG_INFO(chrono_util::LogCategory::CONSENSUS, "[{}] I am the leader for height {} round {}, but no transactions with sufficient fees in mempool. Waiting.",
-                             status_.node_id, current_bft_height, current_bft_round);
-                    // TODO: Leaders might propose empty blocks or just wait, depending on protocol rules.
-                }
             } else {
                  LOG_INFO(chrono_util::LogCategory::CONSENSUS, "I am the leader for height {} round {} and already proposed. Waiting.",
                              current_bft_height, current_bft_round);
@@ -1342,6 +1369,7 @@ void NodeApp::handle_p2p_message(const std::string& topic, const Bytes& data, co
                  prevote_proto->set_round(prevote->round());
                  prevote_proto->set_block_hash(prevote->block_hash().data(), prevote->block_hash().size());
                  prevote_proto->set_validator_id(prevote->validator_id());
+                 prevote_proto->set_time_tier(prevote->time_tier());
                  prevote_proto->mutable_signature()->set_data(prevote->signature().data().c_str(), prevote->signature().data().size());
                  gossip_->publish("prevote", prevote_envelope);
                  LOG_INFO(chrono_util::LogCategory::CONSENSUS, "Broadcasted Prevote for block {} height {} round {}", 
@@ -1356,6 +1384,7 @@ void NodeApp::handle_p2p_message(const std::string& topic, const Bytes& data, co
                      precommit_proto->set_round(precommit->round());
                      precommit_proto->set_block_hash(precommit->block_hash().data(), precommit->block_hash().size());
                      precommit_proto->set_validator_id(precommit->validator_id());
+                     precommit_proto->set_time_tier(precommit->time_tier());
                      precommit_proto->mutable_signature()->set_data(precommit->signature().data().c_str(), precommit->signature().data().size());
                      gossip_->publish("precommit", precommit_envelope);
                      LOG_INFO(chrono_util::LogCategory::CONSENSUS, "Broadcasted Precommit for block {} height {} round {}", 
@@ -1508,6 +1537,7 @@ void NodeApp::handle_p2p_message(const std::string& topic, const Bytes& data, co
                 precommit_proto->set_round(precommit_to_send->round());
                 precommit_proto->set_block_hash(precommit_to_send->block_hash().data(), precommit_to_send->block_hash().size());
                 precommit_proto->set_validator_id(precommit_to_send->validator_id());
+                precommit_proto->set_time_tier(precommit_to_send->time_tier());
                 precommit_proto->mutable_signature()->set_data(precommit_to_send->signature().data().c_str(), precommit_to_send->signature().data().size());
                 gossip_->publish("precommit", precommit_envelope);
                 
@@ -1624,6 +1654,7 @@ void NodeApp::handle_p2p_message(const std::string& topic, const Bytes& data, co
                 prevote_proto->set_round(prevote_to_send->round());
                 prevote_proto->set_block_hash(prevote_to_send->block_hash().data(), prevote_to_send->block_hash().size());
                 prevote_proto->set_validator_id(prevote_to_send->validator_id());
+                prevote_proto->set_time_tier(prevote_to_send->time_tier());
                 prevote_proto->mutable_signature()->set_data(prevote_to_send->signature().data().c_str(), prevote_to_send->signature().data().size());
                 gossip_->publish("prevote", prevote_envelope);
                 
@@ -1636,6 +1667,7 @@ void NodeApp::handle_p2p_message(const std::string& topic, const Bytes& data, co
                     precommit_proto->set_round(precommit->round());
                     precommit_proto->set_block_hash(precommit->block_hash().data(), precommit->block_hash().size());
                     precommit_proto->set_validator_id(precommit->validator_id());
+                    precommit_proto->set_time_tier(precommit->time_tier());
                     precommit_proto->mutable_signature()->set_data(precommit->signature().data().c_str(), precommit->signature().data().size());
                     gossip_->publish("precommit", precommit_envelope);
                     LOG_INFO(chrono_util::LogCategory::CONSENSUS, "Broadcasted Precommit for height {} round {}", 
@@ -1664,6 +1696,7 @@ void NodeApp::handle_p2p_message(const std::string& topic, const Bytes& data, co
                         prevote_proto->set_round(prevote->round());
                         prevote_proto->set_block_hash(prevote->block_hash().data(), prevote->block_hash().size());
                         prevote_proto->set_validator_id(prevote->validator_id());
+                        prevote_proto->set_time_tier(prevote->time_tier());
                         prevote_proto->mutable_signature()->set_data(prevote->signature().data().c_str(), prevote->signature().data().size());
                         gossip_->publish("prevote", prevote_envelope);
                         LOG_INFO(chrono_util::LogCategory::CONSENSUS, "Broadcasted Prevote for buffered block {} height {} round {}", 
@@ -1678,6 +1711,7 @@ void NodeApp::handle_p2p_message(const std::string& topic, const Bytes& data, co
                             precommit_proto->set_round(precommit->round());
                             precommit_proto->set_block_hash(precommit->block_hash().data(), precommit->block_hash().size());
                             precommit_proto->set_validator_id(precommit->validator_id());
+                            precommit_proto->set_time_tier(precommit->time_tier());
                             precommit_proto->mutable_signature()->set_data(precommit->signature().data().c_str(), precommit->signature().data().size());
                             gossip_->publish("precommit", precommit_envelope);
                             LOG_INFO(chrono_util::LogCategory::CONSENSUS, "Broadcasted Precommit for buffered block {} height {} round {}", 
@@ -2344,20 +2378,18 @@ chrono_util::Bytes NodeApp::get_validator_public_key(const std::string& validato
         }
     }
 
-    // 2. Fallback: Check if it's in the static config validators list
-    // This is only useful if we had a way to map address -> pubkey from config, which we don't yet.
-    // But we keep the check to at least acknowledge it's a known validator address.
-    for (const auto& validator_addr : cfg_.validators) {
-        if (validator_addr == validator_id) {
-            // If we are the validator, we know our own public key!
-            if (validator_id == signer_->get_address()) {
-                return signer_->get_public_key();
+    // 2. Fallback: Config validators are hex-encoded public keys.
+    // If the validator_id matches a key in the config, decode it directly.
+    for (const auto& validator_pubkey_hex : cfg_.validators) {
+        if (validator_pubkey_hex == validator_id) {
+            // The config entry IS the hex public key — decode and return it.
+            try {
+                return chrono_util::hex_to_bytes(validator_pubkey_hex);
+            } catch (const std::exception& e) {
+                LOG_WARN(chrono_util::LogCategory::CONSENSUS,
+                         "Failed to decode config public key for validator {}: {}", validator_id, e.what());
             }
-            
-            LOG_DEBUG(chrono_util::LogCategory::CONSENSUS, 
-                      "Validator {} found in config but not in registry (or no key). Verification will fail.", validator_id);
-            // We cannot verify without a public key.
-            return Bytes(); 
+            return Bytes();
         }
     }
     

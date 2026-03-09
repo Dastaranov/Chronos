@@ -241,7 +241,7 @@ public:
   static constexpr size_t EXPECTED_HASH_SIZE = 32;              ///< Expected size of block hashes (Blake3)
   static constexpr uint32_t MAX_GET_BLOCKS_LIMIT = 100;         ///< Max blocks to request at once
   static constexpr size_t MIN_NODE_ID_LENGTH = 10;              ///< Minimum reasonable node ID length
-  static constexpr size_t MAX_NODE_ID_LENGTH = 256;             ///< Maximum reasonable node ID length
+  static constexpr size_t MAX_NODE_ID_LENGTH = 4096;            ///< Maximum validator_id length (hex-encoded Dilithium pubkey = 2624 chars)
   static constexpr uint32_t MAX_PORT_NUMBER = 65535;            ///< Maximum valid TCP port number
   static constexpr size_t MAX_MEMPOOL_SIZE = 50000;             ///< Max transactions in mempool to prevent DoS
 

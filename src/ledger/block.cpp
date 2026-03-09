@@ -426,10 +426,12 @@ bool Block::is_valid() const {
         return false;
     }
 
-    // Check time_tier (must be <= 4 for full nodes/validators)
-    if (time_tier > 4) {
+    // Check time_tier validity. Tier 5 (unauthenticated NTP) is the minimum accepted level.
+    // Production validators should use tier 4 (NTS) or better, but we allow tier 5 for
+    // testnet/development nodes that lack NTS infrastructure.
+    if (time_tier == 0 || time_tier > 5) {
         LOG_WARN(chrono_util::LogCategory::LEDGER, 
-                 "Block validation failed: invalid time_tier {} (must be <= 4)", 
+                 "Block validation failed: invalid time_tier {} (must be 1-5)", 
                  time_tier);
         return false;
     }
