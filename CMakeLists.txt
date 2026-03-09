@@ -50,11 +50,23 @@ FetchContent_MakeAvailable(httplib)
 # -------------------------------
 # Dependency Package Discovery
 # -------------------------------
+
+# Protobuf: prefer local build under /home/chaos/Dev/protobuf_build/install,
+# then fall back to system-wide installation.
+set(PROTOBUF_LOCAL_ROOT "/home/chaos/Dev/protobuf_build/install")
+set(Protobuf_ROOT "${PROTOBUF_LOCAL_ROOT}")
+set(CMAKE_PREFIX_PATH "${PROTOBUF_LOCAL_ROOT}" ${CMAKE_PREFIX_PATH})
+set(Protobuf_INCLUDE_DIR "${PROTOBUF_LOCAL_ROOT}/include")
+set(Protobuf_LIBRARY     "${PROTOBUF_LOCAL_ROOT}/lib/libprotobuf.a")
+set(Protobuf_PROTOC_LIBRARY "${PROTOBUF_LOCAL_ROOT}/lib/libprotoc.a")
+set(Protobuf_PROTOC_EXECUTABLE "${PROTOBUF_LOCAL_ROOT}/bin/protoc")
 find_package(Protobuf REQUIRED)
+
 find_package(Threads REQUIRED)
 find_package(OpenSSL REQUIRED)
 
-# LevelDB dependency
+# LevelDB dependency — prefer local install under /home/chaos/Dev/leveldb_install
+set(leveldb_DIR "/home/chaos/Dev/leveldb_install/lib/cmake/leveldb")
 find_package(leveldb)
 if(leveldb_FOUND)
     set(CHRONOS_USE_LEVELDB ON)
@@ -200,8 +212,8 @@ endif()
 
 # liboqs integratie voor de bibliotheek
 if (CHRONOS_USE_OQS)
-    find_path(OQS_INCLUDE_DIR oqs/oqs.h PATHS /home/gert/Dev/oqs_install/include NO_DEFAULT_PATH)
-    find_library(OQS_LIB oqs PATHS /home/gert/Dev/oqs_install/lib NO_DEFAULT_PATH)
+    find_path(OQS_INCLUDE_DIR oqs/oqs.h PATHS /home/chaos/Dev/oqs_install/include NO_DEFAULT_PATH)
+    find_library(OQS_LIB oqs PATHS /home/chaos/Dev/oqs_install/lib NO_DEFAULT_PATH)
     message(STATUS "CHRONOS_USE_OQS is ON. OQS_INCLUDE_DIR: ${OQS_INCLUDE_DIR}, OQS_LIB: ${OQS_LIB}")
     if (NOT OQS_INCLUDE_DIR OR NOT OQS_LIB)
         message(FATAL_ERROR "liboqs niet gevonden; zet CHRONOS_USE_OQS=OFF of installeer liboqs")
