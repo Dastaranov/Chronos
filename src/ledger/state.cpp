@@ -578,3 +578,19 @@ bool State::deserialize_from_bytes(const chrono_util::Bytes& data) {
 }
 
 } // namespace chrono_ledger
+
+bool chrono_ledger::State::validate_total_supply(uint64_t max_supply) const {
+    std::lock_guard<std::mutex> lock(balances_mutex_);
+    return total_circulating_supply_ <= max_supply;
+}
+
+void chrono_ledger::State::update_circulating_supply(int64_t delta) {
+    std::lock_guard<std::mutex> lock(balances_mutex_);
+    if (delta > 0) {
+        total_circulating_supply_ += static_cast<uint64_t>(delta);
+    } else {
+        uint64_t burn = static_cast<uint64_t>(-delta);
+        total_circulating_supply_ = (total_circulating_supply_ >= burn) ? total_circulating_supply_ - burn : 0;
+    }
+}
+

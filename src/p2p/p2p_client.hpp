@@ -8,8 +8,9 @@ using chrono_util::Bytes; // NEW: Bring Bytes into scope
 #include <unistd.h>    // For close
 #include <vector>      // For Bytes
 
-#include "crypto/kyber_crypto.hpp"
+
 #include "crypto/aes_crypto.hpp"
+#include "crypto/kyber_crypto.hpp"
 #include "crypto/blake3.hpp" // For key derivation
 #include <random>
 

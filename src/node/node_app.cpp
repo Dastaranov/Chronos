@@ -34,9 +34,10 @@
 #include "storage/MemoryBlockchainStorage.hpp"
 #include "crypto/signer_dilithium.hpp" // New: Include for Dilithium signer
 #include "crypto/key_manager.hpp" // For loading keys by ID
-#include "consensus/ChronyBackend.hpp" // For Chrony backend
-#include "consensus/AtomicClockBackend.hpp" // For Atomic Clock backend
-#include "consensus/QuantumClockBackend.hpp" // For Quantum Clock backend
+#include "consensus/ChronyBackend.hpp"   // For Chrony NTP daemon backend
+#include "consensus/AtomicClockBackend.hpp" // Future: hardware atomic clock integration point
+#include "consensus/QuantumClockBackend.hpp" // Future: quantum clock integration point
+
 #include "consensus/bft.hpp" // Now needed for make_unique
 #include "util/retry_policy.hpp"
 #include "util/error_types.hpp"
@@ -158,8 +159,10 @@ NodeApp::NodeApp(const chrono_node::Config& cfg)
     if (cfg_.time_backend == "chrony") {
         time_backend = std::make_unique<chrono_consensus::ChronyBackend>();
     } else if (cfg_.time_backend == "atomic") {
+        // TODO: Wire real atomic clock hardware (e.g., PPS signal via /dev/ppsX)
         time_backend = std::make_unique<chrono_consensus::AtomicClockBackend>(cfg_.atomic_clock_device);
     } else if (cfg_.time_backend == "quantum") {
+        // TODO: Wire real quantum clock hardware when available
         time_backend = std::make_unique<chrono_consensus::QuantumClockBackend>(cfg_.quantum_clock_device);
     }
 
@@ -2630,3 +2633,4 @@ void NodeApp::broadcast_message(const std::string& topic, const chrono_p2p::P2PM
 }
 
 } // namespace chrono_node
+

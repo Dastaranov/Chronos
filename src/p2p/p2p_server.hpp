@@ -33,8 +33,9 @@
 #include "util/log.hpp"
 #include "node/node_status.hpp" // Include NodeStatus
 
-#include "crypto/kyber_crypto.hpp"
+
 #include "crypto/aes_crypto.hpp"
+#include "crypto/kyber_crypto.hpp"
 #include "crypto/blake3.hpp"
 
 namespace chrono_p2p {

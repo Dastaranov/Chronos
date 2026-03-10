@@ -8,8 +8,9 @@
  */
 
 #include "p2p/p2p_server.hpp"
-#include "crypto/kyber_crypto.hpp"
+
 #include "crypto/aes_crypto.hpp"
+#include "crypto/kyber_crypto.hpp"
 #include "crypto/blake3.hpp"
 #include <arpa/inet.h> // For inet_ntoa
 #include <cstring> // For memset

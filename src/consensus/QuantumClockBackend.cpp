@@ -1,3 +1,15 @@
+/**
+ * @file QuantumClockBackend.cpp
+ * @brief Future integration point for quantum clock hardware.
+ *
+ * Currently returns system time with Tier 1 metadata as a placeholder.
+ * To wire real hardware: replace the query() body with the device driver
+ * protocol for your quantum clock sensor (e.g. via a dedicated kernel module
+ * or vendor SDK). The rest of the PoT pipeline requires no changes.
+ *
+ * Config: set `time_backend = "quantum"` and `quantum_clock_device = "/dev/quantum0"`
+ * in the [external_time_sources] section of your TOML config.
+ */
 #include "QuantumClockBackend.hpp"
 #include "util/log.hpp"
 #include <chrono>
@@ -7,7 +19,7 @@ namespace chrono_consensus {
 
 QuantumClockBackend::QuantumClockBackend(const std::string& device_path) 
     : device_path_(device_path) {
-    LOG_INFO(chrono_util::LogCategory::CONSENSUS, "QuantumClockBackend initialized on device: {}", device_path_);
+    LOG_INFO(chrono_util::LogCategory::CONSENSUS, "QuantumClockBackend initialized on device: {} (stub — hardware not yet connected)", device_path_);
 }
 
 std::optional<TimeSample> QuantumClockBackend::query(const std::string& /*server*/) {

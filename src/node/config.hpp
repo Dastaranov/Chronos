@@ -79,9 +79,9 @@ struct Config {
     // External Time Source settings
     std::vector<std::string> ntp_servers = {"pool.ntp.org", "time.google.com"}; ///< @var ntp_servers List of NTP servers to query.
     long ntp_query_interval_ms = 5000; ///< @var ntp_query_interval_ms Interval in milliseconds for querying NTP servers.
-    std::string time_backend = "ntp"; ///< @var time_backend Backend to use ("ntp", "chrony", "atomic", "quantum").
-    std::string atomic_clock_device = "/dev/ttyS0"; ///< @var atomic_clock_device Path to atomic clock serial device.
-    std::string quantum_clock_device = "/dev/quantum0"; ///< @var quantum_clock_device Path to quantum clock device.
+    std::string time_backend = "ntp"; ///< @var time_backend Backend: "ntp", "chrony", "atomic" (future), "quantum" (future).
+    std::string atomic_clock_device = "/dev/ppsX"; ///< @var atomic_clock_device Path to atomic clock PPS device (future hardware integration).
+    std::string quantum_clock_device = "/dev/quantum0"; ///< @var quantum_clock_device Path to quantum clock device (future hardware integration).
 
     // Crypto settings
     std::string sign_alg = "dilithium_2"; ///< @var sign_alg Signing algorithm to use.

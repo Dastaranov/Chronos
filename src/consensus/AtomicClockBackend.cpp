@@ -22,7 +22,7 @@ namespace chrono_consensus {
  * */
 AtomicClockBackend::AtomicClockBackend(const std::string& device_path) 
     : device_path_(device_path) {
-    LOG_INFO(chrono_util::LogCategory::CONSENSUS, "AtomicClockBackend initialized on device: {}", device_path_);
+    LOG_INFO(chrono_util::LogCategory::CONSENSUS, "AtomicClockBackend initialized on device: {} (stub — replace query() with real serial/PPS driver)", device_path_);
 }
 
 

@@ -53,20 +53,34 @@ FetchContent_MakeAvailable(httplib)
 
 # Protobuf: prefer local build under /home/chaos/Dev/protobuf_build/install,
 # then fall back to system-wide installation.
-set(PROTOBUF_LOCAL_ROOT "/home/chaos/Dev/protobuf_build/install")
-set(Protobuf_ROOT "${PROTOBUF_LOCAL_ROOT}")
-set(CMAKE_PREFIX_PATH "${PROTOBUF_LOCAL_ROOT}" ${CMAKE_PREFIX_PATH})
-set(Protobuf_INCLUDE_DIR "${PROTOBUF_LOCAL_ROOT}/include")
-set(Protobuf_LIBRARY     "${PROTOBUF_LOCAL_ROOT}/lib/libprotobuf.a")
-set(Protobuf_PROTOC_LIBRARY "${PROTOBUF_LOCAL_ROOT}/lib/libprotoc.a")
-set(Protobuf_PROTOC_EXECUTABLE "${PROTOBUF_LOCAL_ROOT}/bin/protoc")
+# In Docker / CI, set PROTOBUF_LOCAL_ROOT="" or point to /usr/local to use system protobuf.
+if(NOT DEFINED PROTOBUF_LOCAL_ROOT)
+    set(PROTOBUF_LOCAL_ROOT "/home/chaos/Dev/protobuf_build/install")
+endif()
+if(EXISTS "${PROTOBUF_LOCAL_ROOT}/include/google/protobuf/descriptor.h")
+    set(Protobuf_ROOT "${PROTOBUF_LOCAL_ROOT}")
+    set(CMAKE_PREFIX_PATH "${PROTOBUF_LOCAL_ROOT}" ${CMAKE_PREFIX_PATH})
+    set(Protobuf_INCLUDE_DIR "${PROTOBUF_LOCAL_ROOT}/include")
+    set(Protobuf_LIBRARY     "${PROTOBUF_LOCAL_ROOT}/lib/libprotobuf.a")
+    set(Protobuf_PROTOC_LIBRARY "${PROTOBUF_LOCAL_ROOT}/lib/libprotoc.a")
+    set(Protobuf_PROTOC_EXECUTABLE "${PROTOBUF_LOCAL_ROOT}/bin/protoc")
+    message(STATUS "Using local Protobuf at ${PROTOBUF_LOCAL_ROOT}")
+else()
+    message(STATUS "Local Protobuf not found at ${PROTOBUF_LOCAL_ROOT}, falling back to system protobuf")
+endif()
 find_package(Protobuf REQUIRED)
 
 find_package(Threads REQUIRED)
 find_package(OpenSSL REQUIRED)
 
-# LevelDB dependency — prefer local install under /home/chaos/Dev/leveldb_install
-set(leveldb_DIR "/home/chaos/Dev/leveldb_install/lib/cmake/leveldb")
+# LevelDB dependency — prefer local install, then system
+if(NOT DEFINED LEVELDB_LOCAL_ROOT)
+    set(LEVELDB_LOCAL_ROOT "/home/chaos/Dev/leveldb_install")
+endif()
+if(EXISTS "${LEVELDB_LOCAL_ROOT}/lib/cmake/leveldb/leveldbConfig.cmake")
+    set(leveldb_DIR "${LEVELDB_LOCAL_ROOT}/lib/cmake/leveldb")
+    message(STATUS "Using local LevelDB at ${LEVELDB_LOCAL_ROOT}")
+endif()
 find_package(leveldb)
 if(leveldb_FOUND)
     set(CHRONOS_USE_LEVELDB ON)
@@ -212,8 +226,15 @@ endif()
 
 # liboqs integratie voor de bibliotheek
 if (CHRONOS_USE_OQS)
-    find_path(OQS_INCLUDE_DIR oqs/oqs.h PATHS /home/chaos/Dev/oqs_install/include NO_DEFAULT_PATH)
-    find_library(OQS_LIB oqs PATHS /home/chaos/Dev/oqs_install/lib NO_DEFAULT_PATH)
+    if(NOT DEFINED OQS_ROOT)
+        set(OQS_ROOT "/home/chaos/Dev/oqs_install")
+    endif()
+    find_path(OQS_INCLUDE_DIR oqs/oqs.h
+        PATHS "${OQS_ROOT}/include" /usr/local/include /usr/include
+        NO_DEFAULT_PATH)
+    find_library(OQS_LIB oqs
+        PATHS "${OQS_ROOT}/lib" "${OQS_ROOT}/lib64" /usr/local/lib /usr/lib
+        NO_DEFAULT_PATH)
     message(STATUS "CHRONOS_USE_OQS is ON. OQS_INCLUDE_DIR: ${OQS_INCLUDE_DIR}, OQS_LIB: ${OQS_LIB}")
     if (NOT OQS_INCLUDE_DIR OR NOT OQS_LIB)
         message(FATAL_ERROR "liboqs niet gevonden; zet CHRONOS_USE_OQS=OFF of installeer liboqs")

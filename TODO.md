@@ -19,14 +19,14 @@
 **Bestanden:** `config/default.toml`, `src/node/config.hpp`, `src/ledger/state.hpp`, `src/node/node_app.cpp`
 
 ### 2. LevelDB Storage Backend
-**Status:** Niet gestart  
+**Status:** ✅ Geïmplementeerd — `LevelDBBlockchainStorage` actief voor full nodes
 **Blokkeert:** Schaalbaarheid, performance, mainnet
 
 **Implementatie:** LevelDBBlockchainStorage class, key schema (h/, b/, m/), protobuf serialization, atomic batch writes  
 **Bestanden:** `src/storage/LevelDBBlockchainStorage.hpp/cpp`, `CMakeLists.txt`
 
 ### 3. Peer Discovery Mechanisme
-**Status:** Niet gestart  
+**Status:** ✅ Geïmplementeerd — `DiscoveryManager` + `PeerStore` actief
 **Blokkeert:** Decentralisatie, productie deployment
 
 **Implementatie:** PeerStore persistence, DiscoveryManager, peer exchange protocol, bootstrap nodes  
@@ -53,8 +53,7 @@
 ## 🔵 MEDIUM PRIORITEIT (Features & Verbetering)
 
 ### 7. SecureSync Timeserver (Phase 1)
-**Implementatie:** ITimeSyncBackend, ChronyBackend, NTS support  
-**Bestanden:** `src/consensus/ITimeSyncBackend.hpp`, `src/consensus/ChronyBackend.hpp/cpp`
+**Status:** ✅ Geïmplementeerd — `ChronyBackend` + `NtpClient` actief; `AtomicClockBackend` en `QuantumClockBackend` zijn insert points voor toekomstige hardware
 
 ### 8-11. Node Politics & Governance
 Zie dedicated sectie hieronder voor volledige details.

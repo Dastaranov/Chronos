@@ -8,8 +8,9 @@
  */
 
 #include "p2p/p2p_client.hpp"
-#include "crypto/kyber_crypto.hpp"
+
 #include "crypto/aes_crypto.hpp"
+#include "crypto/kyber_crypto.hpp"
 #include "crypto/blake3.hpp"
 #include <cstring> // For memset
 #include <fcntl.h> // For fcntl
