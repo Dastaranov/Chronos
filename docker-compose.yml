@@ -1,0 +1,60 @@
+# ============================================================
+# Chronos Blockchain Node - Docker Compose
+# ============================================================
+# Usage:
+#   1. docker compose build
+#   2. docker compose run --rm chronos wallet_cli generate-keys validator-1
+#   3. docker compose run --rm chronos wallet_cli show-public validator-1
+#   4. Update config/node.toml with the public key
+#   5. docker compose up -d
+# ============================================================
+
+services:
+  chronos:
+    build:
+      context: .
+      dockerfile: Dockerfile
+      target: runtime
+    image: chronos-node:latest
+    container_name: chronos-node
+
+    restart: unless-stopped
+
+    ports:
+      - "8645:8645"   # P2P — must be reachable from the internet for peers
+      - "127.0.0.1:8080:8080"  # RPC — only localhost (use reverse proxy for external access)
+
+    volumes:
+      - chronos-data:/data/chronos          # Blockchain data (persistent)
+      - chronos-keys:/home/chronos/.chronos # Key storage (persistent, keep safe!)
+      - ./config/node.toml:/data/chronos/config.toml:ro  # Node config (read-only)
+
+    environment:
+      - CHRONOS_LOG_LEVEL=INFO
+
+    # Resource limits — adjust based on server capacity
+    deploy:
+      resources:
+        limits:
+          memory: 1G
+        reservations:
+          memory: 256M
+
+    healthcheck:
+      test: ["CMD", "sh", "-c", "wget -qO- http://localhost:8080/health 2>/dev/null || exit 1"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+      start_period: 10s
+
+    logging:
+      driver: "json-file"
+      options:
+        max-size: "50m"
+        max-file: "5"
+
+volumes:
+  chronos-data:
+    driver: local
+  chronos-keys:
+    driver: local

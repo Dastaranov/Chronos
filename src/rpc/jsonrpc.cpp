@@ -90,6 +90,10 @@ void JsonRpcServer::serve() {
         return handle_get_mempool(params);
     });
 
+    http_server_.Get("/health", [](const httplib::Request&, httplib::Response& res) {
+        res.set_content("{\"status\":\"ok\"}", "application/json");
+    });
+
     http_server_.Post("/", [this](const httplib::Request& req, httplib::Response& res) {
         // Check API Key if configured
         if (!api_key_.empty()) {

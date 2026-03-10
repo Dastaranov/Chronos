@@ -1,0 +1,88 @@
+# ============================================================
+# Chronos Node — Production Config (eerste node / genesis node)
+# ============================================================
+# SETUP INSTRUCTIES:
+#
+# Stap 1: Genereer een validator sleutel (eenmalig):
+#   docker compose run --rm chronos wallet_cli generate-keys validator-1
+#
+# Stap 2: Toon de publieke sleutel:
+#   docker compose run --rm chronos wallet_cli show-public validator-1
+#
+# Stap 3: Plak die publieke sleutel in dit bestand bij:
+#   - private_key_id = "validator-1"
+#   - public_key = "<plak hier>"
+#   - validators = ["<plak hier>"]
+#
+# Stap 4: Start de node:
+#   docker compose up -d
+# ============================================================
+
+[node]
+# node_type: "full" bewaart de volledige blockchain, "light" enkel recente blokken
+node_type = "full"
+
+# data_dir: pad naar de data directory (binnen de container = /data/chronos)
+data_dir = "/data/chronos"
+
+[network]
+# listen_addr: luister op alle interfaces zodat peers kunnen verbinden
+listen_addr = "0.0.0.0"
+
+# listen_port: P2P poort (moet bereikbaar zijn via het internet, open in firewall)
+listen_port = 8645
+
+# seeds: adressen van andere nodes om verbinding mee te maken
+# Voeg hier het publieke IP van je server toe zodra je de tweede node opstart
+seeds = []
+
+# max_peers: maximaal aantal peer verbindingen
+max_peers = 50
+
+peer_discovery_interval_ms = 30000
+peer_management_interval_ms = 10000
+
+[rpc]
+# port: JSON-RPC poort voor wallets en API (enkel localhost via docker-compose)
+port = 8080
+
+[consensus]
+# bft_round_timeout_ms: hoe lang te wachten op consensus voor een round timeout
+bft_round_timeout_ms = 5000
+
+# slot_ms: interval tussen blokproposals (500ms = ~2 blokken/sec)
+slot_ms = 500
+
+bft_quorum = 0.67
+outlier_mad_factor = 6.0
+min_threshold_ms = 5.0
+min_stake_nanos = 1000000
+
+# validators: lijst van validator publieke sleutels (hex-encoded Dilithium)
+# VERVANG DIT door de uitvoer van: wallet_cli show-public validator-1
+validators = [
+    "VERVANG_DOOR_UW_PUBLIEKE_SLEUTEL"
+]
+
+[crypto]
+# private_key_id: verwijst naar de sleutel opgeslagen door wallet_cli
+# VERVANG DIT door de naam die je gebruikte bij generate-keys
+private_key_id = "validator-1"
+
+# public_key: dezelfde sleutel als in validators[]
+# VERVANG DIT door de uitvoer van: wallet_cli show-public validator-1
+public_key = "VERVANG_DOOR_UW_PUBLIEKE_SLEUTEL"
+
+sign_alg = "dilithium"
+addr_hrp = "cqc"
+
+[external_time_sources]
+# NTP servers voor Proof-of-Time tijdkalibratie
+ntp_servers = [
+    "time.cloudflare.com",
+    "time.google.com",
+    "0.pool.ntp.org",
+    "1.pool.ntp.org"
+]
+ntp_query_interval_ms = 30000
+time_backend = "ntp"

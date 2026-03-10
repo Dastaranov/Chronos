@@ -1,0 +1,13 @@
+build/
+build2/
+data/
+logs/
+*.log
+.git/
+staging/
+test_data/
+test_integration_data/
+tools/
+wallet/
+*.kv
+genesis_key.txt
