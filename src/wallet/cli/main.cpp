@@ -64,26 +64,33 @@ std::string get_passphrase(const std::string& prompt, bool confirm = false) {
 }
 
 void print_usage() {
-    std::cout << "Chronos Wallet CLI - Key Management & Transaction Tool" << std::endl;
-    std::cout << "Usage: wallet_cli <command> [options]" << std::endl;
-    std::cout << "\nKey Management Commands:" << std::endl;
-    std::cout << "  generate-keys <key-id>    Generate a new Dilithium key pair and store securely." << std::endl;
-    std::cout << "  list-keys                 List all stored key IDs." << std::endl;
-    std::cout << "  show-public <key-id>      Display the Base58Check-encoded public key." << std::endl;
-    std::cout << "\nNode Interaction Commands:" << std::endl;
-    std::cout << "  status                    Get node status." << std::endl;
-    std::cout << "  balance <address>         Get balance of an address." << std::endl;
-    std::cout << "  send <key-id> <to> <amt>  Send transaction (amount in nanos)." << std::endl;
-    std::cout << "  stake <key-id> <amt>      Stake amount to become a validator." << std::endl;
-    std::cout << "  unstake <key-id> <amt>    Unstake amount." << std::endl;
-    std::cout << "  get-block <height|hash>   Get block details." << std::endl;
-    std::cout << "  import-key <key-id> <hex> Import a private key from hex string." << std::endl;
-    std::cout << "  export-key <key-id>       Export a private key to hex string (WARNING: SENSITIVE)." << std::endl;
-    std::cout << "  discover                  Discover new nodes from current connections." << std::endl;
-    std::cout << "  list-nodes                List configured nodes." << std::endl;
-    std::cout << "\nOptions:" << std::endl;
-    std::cout << "  --rpc <host:port>         Add RPC endpoint (can be used multiple times)" << std::endl;
-    std::cout << "  --api-key <key>           Set RPC API key for the last added node" << std::endl;
+    std::cout << "Chronos Wallet CLI - Key Management & Transaction Tool\n"
+              << "Usage: wallet_cli <command> [options]\n"
+              << "\nKey Management:\n"
+              << "  generate-keys <key-id>              Generate a new Dilithium key pair.\n"
+              << "  list-keys                           List all stored key IDs.\n"
+              << "  show-public <key-id>                Display the public key (Base58Check).\n"
+              << "  import-key <key-id> <priv> <pub>    Import a key from hex strings.\n"
+              << "  export-key <key-id>                 Export private key as hex (SENSITIVE).\n"
+              << "\nTransactions:\n"
+              << "  balance <address>                   Get balance of an address.\n"
+              << "  send <key-id> <to> <amount>         Send nanos to an address.\n"
+              << "  stake <key-id> <amount> [tier] [name]  Stake to become a validator.\n"
+              << "  unstake <key-id> <amount>           Unstake from validator role.\n"
+              << "\nNode / Network:\n"
+              << "  status                              Get node status.\n"
+              << "  get-block <height|hash>             Get block details.\n"
+              << "  discover                            Discover new nodes.\n"
+              << "  list-nodes                          List configured RPC nodes.\n"
+              << "\nOptions:\n"
+              << "  --rpc <host:port>                   Add RPC endpoint (default: 127.0.0.1:8080)\n"
+              << "  --api-key <key>                     Set RPC API key for the last --rpc node\n"
+              << "  --fee <nanos>                       Transaction fee (default: 100 nanos)\n"
+              << "  --yes, -y                           Skip confirmation prompts\n"
+              << "  --help, -h                          Show this help message\n"
+              << "\nEnvironment:\n"
+              << "  CHRONOS_RPC_URL=host:port           Default RPC endpoint\n"
+              << "  CHRONOS_API_KEY=key                 Default API key\n";
 }
 
 json rpc_call(const std::string& method, const json& params) {
@@ -113,9 +120,32 @@ int main(int argc, char* argv[]) {
     }
 
     std::string command = argv[1];
+
+    // --help / -h
+    if (command == "--help" || command == "-h") {
+        print_usage();
+        return 0;
+    }
+
+    // Global options
+    uint64_t tx_fee = 100;
+    bool skip_confirm = false;
     int arg_idx = 2;
 
-    // Parse options (simple)
+    // Apply env vars before CLI args (CLI args override)
+    if (const char* env_rpc = std::getenv("CHRONOS_RPC_URL")) {
+        std::string ep(env_rpc);
+        size_t colon = ep.find(':');
+        if (colon != std::string::npos) {
+            std::string host = ep.substr(0, colon);
+            int port = std::stoi(ep.substr(colon + 1));
+            std::string api_key;
+            if (const char* env_key = std::getenv("CHRONOS_API_KEY")) api_key = env_key;
+            connector.add_node(host, port, api_key);
+        }
+    }
+
+    // Parse options (scan from the end so positional args are unaffected)
     std::string last_host;
     int last_port = 0;
 
@@ -136,6 +166,12 @@ int main(int argc, char* argv[]) {
                 connector.add_node(last_host, last_port, api_key);
             }
             argc -= 2;
+        } else if (arg == "--fee") {
+            tx_fee = std::stoull(argv[argc-1]);
+            argc -= 2;
+        } else if (std::string(argv[argc-1]) == "--yes" || std::string(argv[argc-1]) == "-y") {
+            skip_confirm = true;
+            argc -= 1;
         } else {
             break;
         }
@@ -282,7 +318,23 @@ int main(int argc, char* argv[]) {
         // === COMMAND: status ===
         } else if (command == "status") {
             json res = rpc_call("get_status", json::object());
-            std::cout << res.dump(2) << std::endl;
+            if (res.contains("error")) {
+                std::cerr << "Error: " << res["error"].dump() << std::endl;
+            } else {
+                std::cout << "\n┌─────────────────────────────────────────┐\n";
+                std::cout << "│           Chronos Node Status           │\n";
+                std::cout << "├─────────────────────────────────────────┤\n";
+                auto fld = [](const std::string& k, const std::string& v) {
+                    std::cout << "│ " << std::left << std::setw(18) << k << ": " << std::setw(20) << v << "│\n";
+                };
+                fld("Version",    res.value("version",    "unknown"));
+                fld("Height",     std::to_string(res.value("height",     0ULL)));
+                fld("Peers",      std::to_string(res.value("peer_count", 0)));
+                fld("Mempool",    std::to_string(res.value("mempool_size", 0)) + " txs");
+                fld("Sync",       res.value("syncing", false) ? "syncing" : "synced");
+                fld("Uptime",     res.value("uptime", "n/a"));
+                std::cout << "└─────────────────────────────────────────┘\n";
+            }
 
         // === COMMAND: balance ===
         } else if (command == "balance") {
@@ -357,7 +409,34 @@ int main(int argc, char* argv[]) {
 
             // 3. Create transaction
             chrono_address::Address to_addr(to_addr_str);
-            uint64_t fee = 100; // Default fee
+            uint64_t fee = tx_fee;
+
+            // Fetch balance for display and warning
+            json bal_params;
+            bal_params["address"] = from_addr.to_string();
+            json bal_res = rpc_call("get_balance", bal_params);
+            uint64_t balance = 0;
+            if (bal_res["status"] == "success") balance = bal_res["balance"];
+
+            // Show confirmation summary
+            if (!skip_confirm) {
+                std::cout << "\n  From    : " << from_addr.to_string() << "\n"
+                          << "  To      : " << to_addr_str << "\n"
+                          << "  Amount  : " << amount << " nanos\n"
+                          << "  Fee     : " << fee << " nanos\n"
+                          << "  Total   : " << (amount + fee) << " nanos\n"
+                          << "  Balance : " << balance << " nanos\n";
+                if (balance < amount + fee)
+                    std::cout << "  ⚠ Warning: balance may be insufficient!\n";
+                std::cout << "\nConfirm transaction? (y/N): ";
+                char yn = 'n';
+                std::cin >> yn;
+                if (yn != 'y' && yn != 'Y') {
+                    std::cout << "Cancelled.\n";
+                    return 0;
+                }
+            }
+
             chrono_ledger::Transaction tx(from_addr, to_addr, amount, fee, nonce, signer->get_public_key());
             
             // 4. Sign
@@ -373,9 +452,16 @@ int main(int argc, char* argv[]) {
             send_params["signature"] = chrono_util::bytes_to_hex(tx.signature);
 
             json send_res = rpc_call("send_transaction", send_params);
-            std::cout << send_res.dump(2) << std::endl;
-
-        // === COMMAND: stake ===
+            if (send_res["status"] == "success") {
+                std::cout << "✓ Transaction sent!\n"
+                          << "  Hash : " << send_res.value("tx_hash", "n/a") << "\n"
+                          << "  From : " << from_addr.to_string() << "\n"
+                          << "  To   : " << to_addr_str << "\n"
+                          << "  Amt  : " << amount << " nanos (fee: " << fee << ")\n";
+            } else {
+                std::cerr << "✗ Transaction failed: " << send_res.value("message", send_res.dump()) << "\n";
+                return 1;
+            }
         } else if (command == "stake") {
             if (argc < 4) {
                 std::cerr << "Usage: wallet_cli stake <key-id> <amount> [time-tier] [name]" << std::endl;
@@ -412,7 +498,7 @@ int main(int argc, char* argv[]) {
 
             // 3. Create transaction
             // Recipient is same as sender for stake registration (self-stake)
-            uint64_t fee = 100; 
+            uint64_t fee = tx_fee;
             
             // Payload: [time_tier] + [name]
             chrono_util::Bytes payload;
@@ -469,7 +555,7 @@ int main(int argc, char* argv[]) {
             uint64_t nonce = nonce_res["nonce"];
 
             // 3. Create transaction
-            uint64_t fee = 100; 
+            uint64_t fee = tx_fee; 
             chrono_ledger::Transaction tx(from_addr, from_addr, amount, fee, nonce, signer->get_public_key(), chrono_ledger::TransactionType::UNSTAKE);
             
             // 4. Sign

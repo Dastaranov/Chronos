@@ -22,21 +22,28 @@ int rpc_port = 8080;
 std::string rpc_api_key = "";
 
 void print_usage() {
-    std::cout << "Chronos Node CLI - Node Management & Governance Tool" << std::endl;
-    std::cout << "Usage: node_cli <command> [options]" << std::endl;
-    std::cout << "\nNode Management Commands:" << std::endl;
-    std::cout << "  status                    Get node status." << std::endl;
-    std::cout << "  peers                     List connected peers." << std::endl;
-    std::cout << "  mempool                   List transactions in mempool." << std::endl;
-    std::cout << "  stake <key-id> <amt>      Stake amount to become a validator." << std::endl;
-    std::cout << "  unstake <key-id> <amt>    Unstake amount." << std::endl;
-    std::cout << "  vote <key-id> <candidate> <approve|reject> Vote for a validator candidate." << std::endl;
-    std::cout << "  list-candidates           List validator candidates and voting status." << std::endl;
-    std::cout << "  list-keys                 List available keys (for signing)." << std::endl;
-    std::cout << "  generate-api-key          Generate a secure random API key." << std::endl;
-    std::cout << "\nOptions:" << std::endl;
-    std::cout << "  --rpc <host:port>         Set RPC endpoint (default: 127.0.0.1:8080)" << std::endl;
-    std::cout << "  --api-key <key>           Set RPC API key" << std::endl;
+    std::cout << "Chronos Node CLI - Node Management & Governance Tool\n"
+              << "Usage: node_cli <command> [options]\n"
+              << "\nNode Management:\n"
+              << "  status                            Get node status.\n"
+              << "  peers                             List connected peers.\n"
+              << "  mempool                           List pending transactions.\n"
+              << "  list-candidates                   List validator candidates and votes.\n"
+              << "  list-keys                         List available signing keys.\n"
+              << "  generate-api-key                  Generate a secure random API key.\n"
+              << "\nGovernance (requires key):\n"
+              << "  stake <key-id> <amount>           Stake to become a validator.\n"
+              << "  unstake <key-id> <amount>         Unstake from validator role.\n"
+              << "  vote <key-id> <candidate> <approve|reject>  Vote for a candidate.\n"
+              << "\nOptions:\n"
+              << "  --rpc <host:port>                 Set RPC endpoint (default: 127.0.0.1:8080)\n"
+              << "  --api-key <key>                   Set RPC API key\n"
+              << "  --fee <nanos>                     Transaction fee (default: 100 nanos)\n"
+              << "  --yes, -y                         Skip confirmation prompts\n"
+              << "  --help, -h                        Show this help message\n"
+              << "\nEnvironment:\n"
+              << "  CHRONOS_RPC_URL=host:port         Default RPC endpoint\n"
+              << "  CHRONOS_API_KEY=key               Default API key\n";
 }
 
 json rpc_call(const std::string& method, const json& params) {
@@ -79,7 +86,29 @@ int main(int argc, char* argv[]) {
 
     std::string command = argv[1];
 
-    // Parse options (simple)
+    // --help / -h
+    if (command == "--help" || command == "-h") {
+        print_usage();
+        return 0;
+    }
+
+    uint64_t tx_fee = 100;
+    bool skip_confirm = false;
+
+    // Apply env vars (CLI args override these below)
+    if (const char* env_rpc = std::getenv("CHRONOS_RPC_URL")) {
+        std::string ep(env_rpc);
+        size_t colon = ep.find(':');
+        if (colon != std::string::npos) {
+            rpc_host = ep.substr(0, colon);
+            rpc_port = std::stoi(ep.substr(colon + 1));
+        }
+    }
+    if (const char* env_key = std::getenv("CHRONOS_API_KEY")) {
+        rpc_api_key = env_key;
+    }
+
+    // Parse options from the end of argv
     while (argc > 2) {
         std::string arg = argv[argc-2];
         if (arg == "--rpc") {
@@ -93,6 +122,12 @@ int main(int argc, char* argv[]) {
         } else if (arg == "--api-key") {
             rpc_api_key = argv[argc-1];
             argc -= 2;
+        } else if (arg == "--fee") {
+            tx_fee = std::stoull(argv[argc-1]);
+            argc -= 2;
+        } else if (std::string(argv[argc-1]) == "--yes" || std::string(argv[argc-1]) == "-y") {
+            skip_confirm = true;
+            argc -= 1;
         } else {
             break;
         }
@@ -102,7 +137,19 @@ int main(int argc, char* argv[]) {
         // === COMMAND: status ===
         if (command == "status") {
             json res = rpc_call("get_status", json::object());
-            std::cout << res.dump(2) << std::endl;
+            std::cout << "\n┌─────────────────────────────────────────┐\n";
+            std::cout << "│           Chronos Node Status           │\n";
+            std::cout << "├─────────────────────────────────────────┤\n";
+            auto fld = [](const std::string& k, const std::string& v) {
+                std::cout << "│ " << std::left << std::setw(18) << k << ": " << std::setw(20) << v << "│\n";
+            };
+            fld("Version",   res.value("version",    "unknown"));
+            fld("Height",    std::to_string(res.value("height",      0ULL)));
+            fld("Peers",     std::to_string(res.value("peer_count",  0)));
+            fld("Mempool",   std::to_string(res.value("mempool_size", 0)) + " txs");
+            fld("Sync",      res.value("syncing", false) ? "syncing" : "synced");
+            fld("Uptime",    res.value("uptime", "n/a"));
+            std::cout << "└─────────────────────────────────────────┘\n";
 
         // === COMMAND: peers ===
         } else if (command == "peers") {
@@ -188,7 +235,7 @@ int main(int argc, char* argv[]) {
             uint64_t nonce = nonce_res["nonce"];
 
             // 3. Create transaction (Self-transfer with STAKE_REGISTRATION type)
-            uint64_t fee = 100; // Default fee
+            uint64_t fee = tx_fee;
             chrono_ledger::Transaction tx(from_addr, from_addr, amount, fee, nonce, signer.get_public_key(), chrono_ledger::TransactionType::STAKE_REGISTRATION);
             
             // 4. Sign
@@ -246,7 +293,7 @@ int main(int argc, char* argv[]) {
 
             // 3. Create transaction (VOTE type)
             uint64_t amount = 0;
-            uint64_t fee = 100; 
+            uint64_t fee = tx_fee;
             chrono_address::Address candidate_addr(candidate_addr_str);
             
             uint64_t vote_value = approve ? 1 : 0;
@@ -330,7 +377,7 @@ int main(int argc, char* argv[]) {
             uint64_t nonce = nonce_res["nonce"];
 
             // 3. Create transaction (Self-transfer with UNSTAKE type)
-            uint64_t fee = 100; // Default fee
+            uint64_t fee = tx_fee;
             chrono_ledger::Transaction tx(from_addr, from_addr, amount, fee, nonce, signer.get_public_key(), chrono_ledger::TransactionType::UNSTAKE);
             
             // 4. Sign
