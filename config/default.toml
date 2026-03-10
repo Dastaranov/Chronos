@@ -75,11 +75,14 @@ gossip_topics = ["blocks", "txs", "timeproofs"]
 # Parameters that govern the consensus mechanism (BFT and Proof-of-Time).
 [consensus]
 # bft_round_timeout_ms: The duration in milliseconds for a single BFT round.
-# If consensus is not reached within this time, the round may time out.
+# If consensus is not reached within this time, the round times out and a new round begins.
+# Should be significantly larger than slot_ms to allow network round-trips between validators.
 bft_round_timeout_ms = 5000
 
-# slot_ms: The duration of a consensus time slot in milliseconds.
-slot_ms = 1000
+# slot_ms: The block production interval in milliseconds (how often the leader proposes a block).
+# Lower values = more blocks per second. Rule of thumb: keep slot_ms > 2x network RTT between validators.
+# Examples: 500ms = ~2 blocks/sec, 200ms = ~5 blocks/sec, 100ms = ~10 blocks/sec
+slot_ms = 500
 
 # bft_quorum: The minimum percentage of votes (as a float) required to reach a decision in the BFT protocol.
 # 0.67 represents a 2/3+ majority.

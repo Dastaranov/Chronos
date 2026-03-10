@@ -428,8 +428,9 @@ void NodeApp::run() {
 
     // Main event loop
     while (running_) {
-        // Sleep for a short interval, representing a consensus tick or slot
-        std::this_thread::sleep_for(std::chrono::milliseconds(cfg_.bft_round_timeout_ms / 10)); // Shorter tick for responsiveness
+        // Sleep for one slot duration (configurable via slot_ms in config).
+        // This is the block production rate; keep it well below the network RTT for multi-node setups.
+        std::this_thread::sleep_for(std::chrono::milliseconds(cfg_.slot_ms));
 
         // --- Dynamic Peer Discovery ---
         auto now = std::chrono::steady_clock::now();
