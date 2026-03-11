@@ -227,13 +227,19 @@ int main(int argc, char* argv[]) {
                 return 1;
             }
 
-            // Ask for passphrase
+            // Ask for passphrase (skip if --yes flag or non-interactive)
             std::string passphrase;
-            try {
-                passphrase = get_passphrase("Enter passphrase to encrypt key (empty for none): ", true);
-            } catch (const std::exception& e) {
-                std::cerr << "Error: " << e.what() << std::endl;
-                return 1;
+            if (skip_confirm || !isatty(STDIN_FILENO)) {
+                passphrase = "";
+                if (!skip_confirm)
+                    std::cerr << "[info] Non-interactive mode: key stored without passphrase.\n";
+            } else {
+                try {
+                    passphrase = get_passphrase("Enter passphrase to encrypt key (empty for none): ", true);
+                } catch (const std::exception& e) {
+                    std::cerr << "Error: " << e.what() << std::endl;
+                    return 1;
+                }
             }
 
             // Save key pair securely to disk

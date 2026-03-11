@@ -1,0 +1,92 @@
+# ============================================================
+# Chronos Seed / Bootstrap Node Configuration
+# ============================================================
+# Deze node dient als centraal verbindingspunt voor het
+# Chronos P2P netwerk. Ze participeert NIET in consensus
+# (geen validator), maar beheert peer-discovery voor andere nodes.
+#
+# Toegankelijk via Tailscale Funnel:
+#   chronos-seed.<tailnet>.ts.net:8645
+# ============================================================
+
+[node]
+# light node: bewaart geen volledige blockchain, enkel peer-relay
+node_type = "light"
+data_dir = "/data/chronos"
+
+[storage]
+backend = "disk"
+leveldb_path = "/data/chronos/leveldb"
+
+[network]
+# Luister op alle interfaces (ook het Tailscale interface)
+listen_addr = "0.0.0.0"
+
+# P2P poort — zelfde als de normale nodes zodat ze kunnen verbinden
+listen_port = 8645
+
+# Seed node heeft geen eigen seeds nodig — hij IS de seed
+bootstrap_nodes = []
+seeds = []
+
+# Hogere peer limiet voor een hub-node
+enable_peer_discovery = true
+max_peers = 200
+min_peers = 0
+peer_discovery_interval_ms = 15000
+peer_management_interval_ms = 10000
+
+[rpc]
+# RPC enkel lokaal bereikbaar (niet extern blootgesteld)
+port = 8080
+
+[p2p]
+gossip_topics = ["blocks", "txs", "timeproofs"]
+
+[consensus]
+bft_round_timeout_ms = 10000
+slot_ms = 500
+bft_quorum = 0.67
+outlier_mad_factor = 6.0
+min_threshold_ms = 5.0
+min_stake_nanos = 1000000
+
+# Geen validators — seed node doet niet mee aan block signing
+validators = []
+
+[crypto]
+# P2P identiteitssleutel (automatisch aangemaakt door entrypoint)
+# Niet in validators[] — enkel voor handshake-signing
+private_key_id = "seed-identity"
+public_key = ""
+
+sign_alg = "dilithium"
+addr_hrp = "cqc"
+
+[external_time_sources]
+ntp_servers = [
+    "time.cloudflare.com",
+    "time.google.com",
+    "0.pool.ntp.org"
+]
+ntp_query_interval_ms = 30000
+time_backend = "ntp"
+
+[secure_time]
+enable_nts = false
+max_skew_ms = 5000
+query_interval_ms = 30000
+min_nts_quorum = 1
+nts_servers = ["time.cloudflare.com"]
+
+[tokenomics]
+max_total_supply = 31556926
+initial_block_reward_nanos = 0
+minting_enabled = false
+reward_halving_interval = 0
+fee_burn_percentage = 0
+token_decimals = 9
+base_fee_nanos = 1000
+
+[genesis]
+consensus_time = 0

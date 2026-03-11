@@ -1,0 +1,108 @@
+# =============================================================================
+# Chronos Seed Node — Docker Compose
+# =============================================================================
+# Opzet: 2 services
+#   1. tailscale  — verbindt met je Tailscale netwerk + activeert Funnel
+#   2. seed       — Chronos light node als P2P bootstrap hub
+#
+# Vereisten:
+#   - Tailscale account met Funnel ingeschakeld
+#     (https://login.tailscale.com/admin/dns → Enable Funnel)
+#   - TS_AUTHKEY in .env.seed of als omgevingsvariabele
+#
+# Starten:
+#   cp .env.seed.example .env.seed
+#   # vul TS_AUTHKEY in .env.seed
+#   docker compose -f docker-compose.seed.yml --env-file .env.seed up -d
+#
+# Logs bekijken:
+#   docker compose -f docker-compose.seed.yml logs -f
+#
+# Stoppen:
+#   docker compose -f docker-compose.seed.yml down
+# =============================================================================
+
+services:
+
+  # ---------------------------------------------------------------------------
+  # Tailscale — beheert netwerktoegang via Tailscale + Funnel
+  # ---------------------------------------------------------------------------
+  tailscale:
+    image: tailscale/tailscale:latest
+    container_name: chronos_seed_tailscale
+    hostname: ${TS_HOSTNAME:-chronos-seed}
+    environment:
+      # Vereist: genereer via https://login.tailscale.com/admin/authkeys
+      # Kies "Reusable" + "No expiry" zodat de node blijft draaien
+      - TS_AUTHKEY=${TS_AUTHKEY:?Stel TS_AUTHKEY in .env.seed in}
+      - TS_HOSTNAME=${TS_HOSTNAME:-chronos-seed}
+      - TS_STATE_DIR=/var/lib/tailscale
+      # Tailscale Serve/Funnel config: exposeert P2P poort 8645 publiek
+      - TS_SERVE_CONFIG=/etc/tailscale/serve.json
+      # Gebruik kernel networking (beter dan userspace voor TCP)
+      - TS_USERSPACE=false
+    volumes:
+      # Persistent state zodat auth niet verloren gaat bij herstart
+      - tailscale_state:/var/lib/tailscale
+      # Funnel configuratie (poort 8645 → seed node)
+      - ./config/tailscale-serve.json:/etc/tailscale/serve.json:ro
+      # TUN device voor kernel networking
+      - /dev/net/tun:/dev/net/tun
+    cap_add:
+      - NET_ADMIN
+      - SYS_MODULE
+    # Poort ook direct op de host voor lokale Docker-nodes
+    ports:
+      - "8645:8645"
+    restart: unless-stopped
+    healthcheck:
+      test: ["CMD", "tailscale", "status", "--peers=false"]
+      interval: 30s
+      timeout: 10s
+      retries: 5
+      start_period: 30s
+
+  # ---------------------------------------------------------------------------
+  # Chronos Seed Node — lichte P2P hub, geen validator
+  # ---------------------------------------------------------------------------
+  seed:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    image: chronos-node:latest
+    container_name: chronos_seed
+    # Deelt het netwerk van de tailscale container zodat alle TCP verkeer
+    # automatisch via Tailscale loopt
+    network_mode: "service:tailscale"
+    environment:
+      - CHRONOS_SEED=1
+      # Pad naar de seed config (gemount als volume hieronder)
+      - CHRONOS_CONFIG=/data/chronos/seed.toml
+    volumes:
+      # Persistent sleutelopslag (P2P identiteit)
+      - seed_keys:/home/chronos/.chronos
+      # Blockchain data (licht: enkel recente headers)
+      - seed_data:/data/chronos
+      # Seed configuratie (read-only)
+      - ./config/seed.toml:/data/chronos/seed.toml:ro
+    entrypoint: ["/usr/local/bin/docker-entrypoint-seed.sh"]
+    depends_on:
+      tailscale:
+        condition: service_healthy
+    restart: unless-stopped
+    logging:
+      driver: "json-file"
+      options:
+        max-size: "50m"
+        max-file: "5"
+
+# =============================================================================
+# Volumes
+# =============================================================================
+volumes:
+  tailscale_state:
+    driver: local
+  seed_data:
+    driver: local
+  seed_keys:
+    driver: local

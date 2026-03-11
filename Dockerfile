@@ -69,7 +69,7 @@ RUN mkdir build && cd build \
         -DLEVELDB_LOCAL_ROOT="" \
         -DOQS_ROOT=/usr/local \
         -DCHRONOS_USE_OQS=ON \
-    && make -j$(nproc) chronos_node wallet_cli genesis_tool
+    && make -j$(nproc) chronos_node wallet_cli genesis_tool node_cli
 
 # ---- Stage 2: Runtime ----
 FROM ubuntu:22.04 AS runtime
@@ -82,10 +82,12 @@ RUN apt-get update && apt-get install -y --no-install-recommends \
     && rm -rf /var/lib/apt/lists/*
 
 # Copy compiled binaries
-COPY --from=builder /chronos/build/chronos_node /usr/local/bin/chronos_node
-COPY --from=builder /chronos/build/wallet_cli    /usr/local/bin/wallet_cli
-COPY --from=builder /chronos/build/genesis_tool  /usr/local/bin/genesis_tool
-COPY docker-entrypoint.sh /usr/local/bin/docker-entrypoint.sh
+COPY --from=builder /chronos/build/chronos_node           /usr/local/bin/chronos_node
+COPY --from=builder /chronos/build/src/wallet/cli/wallet_cli /usr/local/bin/wallet_cli
+COPY --from=builder /chronos/build/genesis_tool           /usr/local/bin/genesis_tool
+COPY --from=builder /chronos/build/node_cli               /usr/local/bin/node_cli
+COPY docker-entrypoint.sh      /usr/local/bin/docker-entrypoint.sh
+COPY docker-entrypoint-seed.sh /usr/local/bin/docker-entrypoint-seed.sh
 
 # Create chronos user (never run as root)
 RUN useradd -m -s /bin/bash chronos

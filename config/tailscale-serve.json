@@ -1,0 +1,10 @@
+{
+  "AllowFunnel": {
+    "${TS_CERT_DOMAIN}:8645": true
+  },
+  "TCP": {
+    "8645": {
+      "TCPForward": "localhost:8645"
+    }
+  }
+}
