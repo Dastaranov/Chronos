@@ -38,12 +38,25 @@ namespace chrono_ledger {
  * @brief Defines the type of transaction.
  */
 enum class TransactionType : uint8_t {
-    TRANSFER = 0,       ///< Standard value transfer
-    KEY_ROTATION = 1,   ///< Validator key rotation
-    STAKE_REGISTRATION = 2, ///< Register as validator with stake
-    UNSTAKE = 3,        ///< Withdraw stake
-    VOTE = 4,           ///< Vote for a node approval
-    PROPOSAL_UPGRADE = 5 ///< Propose a network upgrade
+    STANDARD = 0,           ///< Standard value transfer
+    ENERGY_MINT = 1,        ///< Creates a time-bound energy token from external energy data
+    ENERGY_MATCH = 2,       ///< Matches energy token flows between participants
+    ENERGY_FALLBACK = 3,    ///< Moves expired energy tokens to battery-park settlement
+    TRANSFER = STANDARD,    ///< Backward-compatible alias for standard transfer
+    KEY_ROTATION = 10,      ///< Validator key rotation
+    STAKE_REGISTRATION = 11,///< Register as validator with stake
+    UNSTAKE = 12,           ///< Withdraw stake
+    VOTE = 13,              ///< Vote for a node approval
+    PROPOSAL_UPGRADE = 14   ///< Propose a network upgrade
+};
+
+/**
+ * @enum SecurityTier
+ * @brief Defines the security tier used for transaction routing.
+ */
+enum class SecurityTier : uint8_t {
+    STANDARD_RETAIL = 0,      ///< Standard Layer 2 retail transaction.
+    CRITICAL_SETTLEMENT = 1   ///< Critical Layer 1 settlement transaction.
 };
 
 /**
@@ -57,7 +70,7 @@ enum class TransactionType : uint8_t {
  */
 class Transaction {
 public:
-    TransactionType type = TransactionType::TRANSFER; ///< @var type The type of the transaction.
+    TransactionType type = TransactionType::STANDARD; ///< @var type The type of the transaction.
     chrono_address::Address sender; ///< @var sender The address of the transaction initiator.
     chrono_address::Address recipient; ///< @var recipient The address of the transaction receiver.
     uint64_t amount; ///< @var amount The value being transferred in the transaction.
@@ -66,6 +79,7 @@ public:
     Bytes payload; ///< @var payload Arbitrary data associated with the transaction (e.g., new key).
     Bytes signature; ///< @var signature The cryptographic signature of the sender, proving authorization.
     uint64_t nonce; ///< @var nonce A unique number used to prevent replay attacks and order transactions from the same sender.
+    SecurityTier tier = SecurityTier::STANDARD_RETAIL; ///< @var tier Security tier used for asymmetric dual-layer routing.
 
     /**
      * @brief Default constructor for the Transaction class.
@@ -86,8 +100,9 @@ public:
      * @param amount The amount of value to transfer.
      * @param fee The transaction fee.
      * @param nonce The transaction nonce.
-     * @param type The transaction type (default: TRANSFER).
+     * @param type The transaction type (default: STANDARD).
      * @param payload Arbitrary payload data (default: empty).
+     * @param tier Security tier (default: STANDARD_RETAIL).
      */
     Transaction(const chrono_address::Address& sender,
                 const chrono_address::Address& recipient,
@@ -95,8 +110,9 @@ public:
                 uint64_t fee,
                 uint64_t nonce,
                 const Bytes& public_key,
-                TransactionType type = TransactionType::TRANSFER,
-                const Bytes& payload = {});
+                TransactionType type = TransactionType::STANDARD,
+                const Bytes& payload = {},
+                SecurityTier tier = SecurityTier::STANDARD_RETAIL);
 
     /**
      * @brief Returns the hash of the full transaction (including signature).

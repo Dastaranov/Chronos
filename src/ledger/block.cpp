@@ -25,6 +25,7 @@
 #include "crypto/crypto_provider.hpp"
 #include "util/codec.hpp"
 #include "util/log.hpp"
+#include <algorithm>
 #include <stdexcept>
 #include <cstring> // For memcpy
 #include <chrono>
@@ -32,6 +33,26 @@
 #include "util/bytes.hpp" // For bytes_to_hex and hex_to_bytes
 
 namespace chrono_ledger {
+
+namespace {
+/**
+ * @brief Normalizes layer_1_anchor to either empty or 32-byte hash form.
+ * @param anchor Candidate anchor bytes.
+ * @return 32-byte hash if present, empty bytes otherwise.
+ */
+Bytes normalize_layer_1_anchor(const Bytes& anchor) {
+    if (anchor.empty()) {
+        return {};
+    }
+    if (anchor.size() == 32) {
+        return anchor;
+    }
+    Bytes normalized(32, 0);
+    const size_t copy_size = std::min<size_t>(anchor.size(), normalized.size());
+    std::copy(anchor.begin(), anchor.begin() + copy_size, normalized.begin());
+    return normalized;
+}
+} // namespace
 
 /**
  * @brief Constructor for creating a new block with specified details.
@@ -49,8 +70,8 @@ namespace chrono_ledger {
  * @param time_quality_score_val The Time Quality Score of the proposer.
  * @param txs A vector of `Transaction` objects to be included in this block.
  */
-Block::Block(const Bytes& prev_hash, uint64_t height, uint64_t consensus_time_val, uint32_t round_val, uint32_t time_tier_val, uint32_t time_quality_score_val, const std::vector<Transaction>& txs)
-    : prev_block_hash(prev_hash), height(height), consensus_time(consensus_time_val), round(round_val), time_tier(time_tier_val), time_quality_score(time_quality_score_val), transactions(txs) {
+Block::Block(const Bytes& prev_hash, uint64_t height, uint64_t consensus_time_val, uint32_t round_val, uint32_t time_tier_val, uint32_t time_quality_score_val, const std::vector<Transaction>& txs, const Bytes& layer_1_anchor_val)
+    : prev_block_hash(prev_hash), height(height), consensus_time(consensus_time_val), round(round_val), time_tier(time_tier_val), time_quality_score(time_quality_score_val), layer_1_anchor(normalize_layer_1_anchor(layer_1_anchor_val)), transactions(txs) {
     timestamp = std::chrono::duration_cast<std::chrono::seconds>(
                     std::chrono::system_clock::now().time_since_epoch()
                 ).count();
@@ -61,7 +82,7 @@ Block::Block(const Bytes& prev_hash, uint64_t height, uint64_t consensus_time_va
  * @brief Calculates the cryptographic hash of the block header.
  *
  * This method concatenates the `prev_block_hash`, `timestamp`, `transactions_merkle_root`,
- * `height`, `consensus_time`, and `round` into a single byte array. It then computes the BLAKE3 hash of this combined
+ * `height`, `consensus_time`, `round`, and `layer_1_anchor` into a single byte array. It then computes the BLAKE3 hash of this combined
  * data to produce the unique identifier for the block header.
  *
  * @return A `Bytes` object containing the 32-byte BLAKE3 hash of the block header.
@@ -95,6 +116,9 @@ Bytes Block::get_header_hash() const {
     Bytes time_quality_score_bytes(sizeof(time_quality_score));
     std::memcpy(time_quality_score_bytes.data(), &time_quality_score, sizeof(time_quality_score));
     header_data.insert(header_data.end(), time_quality_score_bytes.begin(), time_quality_score_bytes.end());
+
+    const Bytes anchor_bytes = normalize_layer_1_anchor(layer_1_anchor);
+    header_data.insert(header_data.end(), anchor_bytes.begin(), anchor_bytes.end());
 
     return chrono_crypto::get_crypto_provider()->hash(header_data);
 }
@@ -173,6 +197,8 @@ Bytes Block::calculate_merkle_root() const {
  * - height (uint64_t LE)
  * - consensus_time (uint64_t LE)
  * - round (uint32_t LE)
+ * - layer_1_anchor_length (uint32_t LE)
+ * - layer_1_anchor (variable, usually 32-byte hash)
  * - num_transactions (uint32_t LE, not size_t)
  * - For each transaction:
  *   - transaction_size (uint32_t LE)
@@ -207,6 +233,11 @@ Bytes Block::serialize() const {
     // Add time_quality_score (uint32_t LE)
     chrono_util::write_fixed_uint32_le(time_quality_score, serialized_data);
 
+    // Add layer_1_anchor with length prefix
+    const Bytes anchor_bytes = normalize_layer_1_anchor(layer_1_anchor);
+    chrono_util::write_fixed_uint32_le(static_cast<uint32_t>(anchor_bytes.size()), serialized_data);
+    serialized_data.insert(serialized_data.end(), anchor_bytes.begin(), anchor_bytes.end());
+
     // Add transaction count (uint32_t LE, not size_t for canonical format)
     chrono_util::write_fixed_uint32_le(static_cast<uint32_t>(transactions.size()), serialized_data);
 
@@ -234,6 +265,8 @@ Bytes Block::serialize() const {
  * - transactions_merkle_root (32 bytes fixed)
  * - height (uint64_t LE)
  * - consensus_time (uint64_t LE)
+ * - layer_1_anchor_length (uint32_t LE, optional for backward compatibility)
+ * - layer_1_anchor (variable)
  * - num_transactions (uint32_t LE)
  * - For each transaction:
  *   - transaction_size (uint32_t LE)
@@ -278,29 +311,62 @@ Block Block::deserialize(const Bytes& data) {
     // Read time_quality_score (uint32_t LE)
     uint32_t time_quality_score_val = chrono_util::read_fixed_uint32_le(data, offset);
 
-    // Read transaction count (uint32_t LE, not size_t)
-    uint32_t num_tx = chrono_util::read_fixed_uint32_le(data, offset);
-
-    // Read transactions
+    Bytes layer_1_anchor_val;
     std::vector<Transaction> transactions_val;
-    transactions_val.reserve(num_tx);
-    
-    for (uint32_t i = 0; i < num_tx; ++i) {
-        // Read transaction size (uint32_t LE)
-        uint32_t tx_size = chrono_util::read_fixed_uint32_le(data, offset);
 
-        if (offset + tx_size > data.size()) {
-            throw std::runtime_error("Block data too short for transaction at index " + std::to_string(i));
+    const size_t tx_start_offset = offset;
+    bool parsed_with_anchor = false;
+    if (offset + 4 <= data.size()) {
+        try {
+            size_t trial_offset = offset;
+            uint32_t anchor_len = chrono_util::read_fixed_uint32_le(data, trial_offset);
+            if (trial_offset + anchor_len <= data.size()) {
+                layer_1_anchor_val.assign(data.begin() + trial_offset, data.begin() + trial_offset + anchor_len);
+                trial_offset += anchor_len;
+
+                uint32_t num_tx = chrono_util::read_fixed_uint32_le(data, trial_offset);
+                std::vector<Transaction> trial_transactions;
+                trial_transactions.reserve(num_tx);
+
+                for (uint32_t i = 0; i < num_tx; ++i) {
+                    uint32_t tx_size = chrono_util::read_fixed_uint32_le(data, trial_offset);
+                    if (trial_offset + tx_size > data.size()) {
+                        throw std::runtime_error("Block data too short for transaction (anchor mode).");
+                    }
+                    Bytes tx_data(data.begin() + trial_offset, data.begin() + trial_offset + tx_size);
+                    trial_transactions.push_back(Transaction::deserialize(tx_data));
+                    trial_offset += tx_size;
+                }
+
+                if (trial_offset == data.size()) {
+                    parsed_with_anchor = true;
+                    offset = trial_offset;
+                    transactions_val = std::move(trial_transactions);
+                }
+            }
+        } catch (const std::exception&) {
+            parsed_with_anchor = false;
         }
+    }
 
-        // Read transaction data
-        Bytes tx_data(data.begin() + offset, data.begin() + offset + tx_size);
-        transactions_val.push_back(Transaction::deserialize(tx_data));
-        offset += tx_size;
+    if (!parsed_with_anchor) {
+        offset = tx_start_offset;
+        uint32_t num_tx = chrono_util::read_fixed_uint32_le(data, offset);
+        transactions_val.reserve(num_tx);
+
+        for (uint32_t i = 0; i < num_tx; ++i) {
+            uint32_t tx_size = chrono_util::read_fixed_uint32_le(data, offset);
+            if (offset + tx_size > data.size()) {
+                throw std::runtime_error("Block data too short for transaction at index " + std::to_string(i));
+            }
+            Bytes tx_data(data.begin() + offset, data.begin() + offset + tx_size);
+            transactions_val.push_back(Transaction::deserialize(tx_data));
+            offset += tx_size;
+        }
     }
 
     // Create block and set fields
-    Block block(prev_block_hash_val, height_val, consensus_time_val, round_val, time_tier_val, time_quality_score_val, transactions_val);
+    Block block(prev_block_hash_val, height_val, consensus_time_val, round_val, time_tier_val, time_quality_score_val, transactions_val, layer_1_anchor_val);
     block.timestamp = timestamp_val;
     block.transactions_merkle_root = transactions_merkle_root_val;
     
@@ -328,6 +394,7 @@ nlohmann::json Block::to_json() const {
     j["round"] = round;
     j["time_tier"] = time_tier;
     j["time_quality_score"] = time_quality_score;
+    j["layer_1_anchor"] = chrono_util::bytes_to_hex(normalize_layer_1_anchor(layer_1_anchor));
 
     nlohmann::json txs_json = nlohmann::json::array();
     for (const auto& tx : transactions) {
@@ -346,6 +413,7 @@ void Block::from_json(const nlohmann::json& j) {
     round = j.at("round").get<uint32_t>();
     time_tier = j.value("time_tier", 5); // Default to 5 (NTP) if missing
     time_quality_score = j.value("time_quality_score", 0); // Default to 0 if missing
+    layer_1_anchor = normalize_layer_1_anchor(chrono_util::hex_to_bytes(j.value("layer_1_anchor", "")));
 
     transactions.clear();
     for (const auto& tx_json : j.at("transactions")) {
@@ -395,6 +463,9 @@ chrono_util::Bytes Block::get_signable_bytes() const {
     Bytes time_quality_score_bytes(sizeof(time_quality_score));
     std::memcpy(time_quality_score_bytes.data(), &time_quality_score, sizeof(time_quality_score));
     signable_data.insert(signable_data.end(), time_quality_score_bytes.begin(), time_quality_score_bytes.end());
+
+    const Bytes anchor_bytes = normalize_layer_1_anchor(layer_1_anchor);
+    signable_data.insert(signable_data.end(), anchor_bytes.begin(), anchor_bytes.end());
 
     return signable_data;
 }
@@ -478,3 +549,9 @@ bool Block::is_valid() const {
 }
 
 } // namespace chrono_ledger
+    if (!layer_1_anchor.empty() && layer_1_anchor.size() != 32) {
+        LOG_WARN(chrono_util::LogCategory::LEDGER,
+                 "Block validation failed: invalid layer_1_anchor size {} (expected 0 or 32)",
+                 layer_1_anchor.size());
+        return false;
+    }

@@ -8,7 +8,7 @@
  *
  * The ISigner interface establishes a contract for any class that provides digital signing
  * and verification functionalities. It ensures a consistent API for different cryptographic
- * algorithms (e.g., Dilithium, HMAC) that might be used for signing messages within the Chronos project.
+ * algorithms (e.g., ML-DSA, HMAC) that might be used for signing messages within the Chronos project.
  *
  * Key functionalities defined by this interface:
  * - `get_public_key()`: Retrieves the public key associated with the signer.

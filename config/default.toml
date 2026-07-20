@@ -10,6 +10,11 @@
 # "light": Stores only block headers and relies on full nodes for most validation.
 node_type = "full"
 
+# is_beacon_node: Enables Layer 1-only ChronosBeat production mode.
+# true  = beacon node (time beacons only)
+# false = validator node (BFT + retail transactions)
+is_beacon_node = false
+
 # data_dir: The directory where blockchain data, state, and snapshots are stored.
 # The path is relative to the executable's location unless an absolute path is provided.
 data_dir = "data"
@@ -194,4 +199,3 @@ max_supply_per_account = 1000000000000000
 [genesis.allocations]
 # Foundation / Treasury (Example)
 # "cqc1..." = 3155692000000000
-

@@ -37,6 +37,8 @@
 #include "consensus/ChronyBackend.hpp"   // For Chrony NTP daemon backend
 #include "consensus/AtomicClockBackend.hpp" // Future: hardware atomic clock integration point
 #include "consensus/QuantumClockBackend.hpp" // Future: quantum clock integration point
+#include "consensus/beacon_engine.hpp"
+#include "hardware/time_oracle.hpp"
 
 #include "consensus/bft.hpp" // Now needed for make_unique
 #include "util/retry_policy.hpp"
@@ -172,6 +174,17 @@ NodeApp::NodeApp(const chrono_node::Config& cfg)
         measurement_callback, // Callback to add measurement to PoTAggregator
         std::move(time_backend)
     );
+
+    if (cfg_.is_beacon_node) {
+        beacon_engine_ = std::make_unique<chrono_consensus::BeaconEngine>(
+            signer_.get(),
+            std::make_unique<chrono_hardware::SimulatedClock>(),
+            static_cast<uint64_t>(cfg_.slot_ms)
+        );
+        LOG_INFO(chrono_util::LogCategory::CONSENSUS, "Node configured as beacon node (Layer 1 ChronosBeat mode).");
+    } else {
+        LOG_INFO(chrono_util::LogCategory::CONSENSUS, "Node configured as validator node (Layer 2 BFT mode).");
+    }
 
     // Initialize blockchain_storage_ based on node type specified in configuration.
     // Full nodes use DiskBlockchainStorage for persistent storage, Light nodes use MemoryBlockchainStorage.
@@ -513,6 +526,29 @@ void NodeApp::run() {
             last_snapshot_discovery_time_ = now;
         }
 
+        if (cfg_.is_beacon_node) {
+            if (beacon_engine_) {
+                if (auto beat = beacon_engine_->maybe_produce(now)) {
+                    chrono_p2p::P2PMessage beat_envelope;
+                    auto* beat_proto = beat_envelope.mutable_chronos_beat();
+                    beat_proto->set_timestamp_ms(beat->timestamp_ms);
+                    beat_proto->set_producer_id(beat->producer_id);
+                    beat_proto->set_signature(beat->signature.data(), beat->signature.size());
+                    broadcast_message("chronos_beats", beat_envelope);
+
+                    chrono_util::Bytes beat_hash = chrono_consensus::BeaconEngine::compute_beat_hash(
+                        beat->timestamp_ms, beat->producer_id);
+                    std::lock_guard<std::mutex> beat_lock(chronos_beat_mutex_);
+                    latest_chronos_beat_hash_ = beat_hash;
+
+                    LOG_INFO(chrono_util::LogCategory::CONSENSUS,
+                             "Broadcasted ChronosBeat timestamp={} hash={}",
+                             beat->timestamp_ms, bytes_to_hex(beat_hash));
+                }
+            }
+            continue;
+        }
+
         // --- Consensus Logic ---
         // Timestamps are now added to pot_ by ExternalTimeSourceManager
         uint64_t current_consensus_time = 0;
@@ -531,7 +567,10 @@ void NodeApp::run() {
         // Update status for display
         status_.consensus_round = current_bft_round;
         status_.current_block_height = next_block_height_ - 1;
-        status_.mempool_size = mempool_.size();
+        {
+            std::lock_guard<std::mutex> lock_mempool(mempool_mutex_);
+            status_.mempool_size = tier1_mempool_.size() + tier2_mempool_.size();
+        }
         {
              std::lock_guard<std::mutex> lock(peers_mutex_);
              status_.connected_peers = connected_peers_.size();
@@ -549,10 +588,11 @@ void NodeApp::run() {
             if (!bft_->has_proposed_for_round(current_bft_height, current_bft_round)) {
                 std::vector<chrono_ledger::Transaction> transactions_for_block;
                 chrono_util::Bytes last_block_for_proposal;
+                chrono_util::Bytes layer_1_anchor_for_proposal;
                 {
                     std::lock_guard<std::mutex> lock_mempool(mempool_mutex_);
                     // Use select_transactions_for_block to filter and sort by fee
-                    auto [selected_txs, collected_fees] = select_transactions_for_block(mempool_);
+                    auto [selected_txs, collected_fees] = select_transactions_for_block(tier2_mempool_);
                     transactions_for_block = selected_txs;
                     
                     // If transactions were selected, collect leader rewards
@@ -564,12 +604,22 @@ void NodeApp::run() {
                                  collected_fees, current_bft_height, current_bft_round);
                     }
                     
-                    // Clear mempool after selection
-                    mempool_.clear();
+                    // Clear L2 mempool after selection
+                    tier2_mempool_.clear();
                 }
                 {
                     std::lock_guard<std::mutex> lock_state(blockchain_state_mutex_);
                     last_block_for_proposal = last_block_hash_;
+                }
+                {
+                    std::lock_guard<std::mutex> beat_lock(chronos_beat_mutex_);
+                    layer_1_anchor_for_proposal = latest_chronos_beat_hash_;
+                }
+                if (layer_1_anchor_for_proposal.empty()) {
+                    layer_1_anchor_for_proposal = chrono_util::Bytes(32, 0);
+                    LOG_WARN(chrono_util::LogCategory::CONSENSUS,
+                             "No ChronosBeat anchor available for height {} round {}. Using zero anchor.",
+                             current_bft_height, current_bft_round);
                 }
 
                 // Leaders always propose a block, even when the mempool is empty.
@@ -582,7 +632,7 @@ void NodeApp::run() {
                 uint32_t current_score = static_cast<uint32_t>(external_time_manager_->get_time_quality_score());
 
                 // Create a new block
-                Block new_block(last_block_for_proposal, current_bft_height, current_consensus_time, current_bft_round, current_tier, current_score, transactions_for_block);
+                Block new_block(last_block_for_proposal, current_bft_height, current_consensus_time, current_bft_round, current_tier, current_score, transactions_for_block, layer_1_anchor_for_proposal);
                 
                 // Create a Protobuf NewRound message
                 chronos::bft::NewRound new_round_msg_proto;
@@ -714,6 +764,13 @@ bool NodeApp::add_block(const Block& b) {
         return false;
     }
 
+    if (!cfg_.is_beacon_node && b.height > 0 && b.layer_1_anchor.size() != 32) {
+        LOG_WARN(chrono_util::LogCategory::CONSENSUS,
+                 "Rejecting block {} at height {} due to missing/invalid layer_1_anchor.",
+                 bytes_to_hex(b.get_header_hash()), b.height);
+        return false;
+    }
+
     // PoT Consensus Time Validation
     // Skip for genesis block (height 0) as we might not have measurements yet
     if (b.height > 0) {
@@ -835,8 +892,8 @@ bool NodeApp::add_block(const Block& b) {
     {
         std::lock_guard<std::mutex> lock(mempool_mutex_);
         // Remove transactions that were included in this block
-        mempool_.erase(
-            std::remove_if(mempool_.begin(), mempool_.end(),
+        tier2_mempool_.erase(
+            std::remove_if(tier2_mempool_.begin(), tier2_mempool_.end(),
                           [&b](const Transaction& tx) {
                               // Check if this tx is in the block
                               return std::find_if(b.transactions.begin(), b.transactions.end(),
@@ -844,7 +901,16 @@ bool NodeApp::add_block(const Block& b) {
                                                     return block_tx.get_hash_for_signing() == tx.get_hash_for_signing();
                                                 }) != b.transactions.end();
                           }),
-            mempool_.end());
+            tier2_mempool_.end());
+        tier1_mempool_.erase(
+            std::remove_if(tier1_mempool_.begin(), tier1_mempool_.end(),
+                          [&b](const Transaction& tx) {
+                              return std::find_if(b.transactions.begin(), b.transactions.end(),
+                                                [&tx](const Transaction& block_tx) {
+                                                    return block_tx.get_hash_for_signing() == tx.get_hash_for_signing();
+                                                }) != b.transactions.end();
+                          }),
+            tier1_mempool_.end());
     }
 
     // Advance BFT state for next consensus round
@@ -899,10 +965,17 @@ void NodeApp::add_transaction(const Transaction& tx) {
  * @return True if the transaction passed all validations and was added, false otherwise.
  */
 bool NodeApp::add_transaction_to_mempool(const chrono_ledger::Transaction& tx) {
+    if (cfg_.is_beacon_node && tx.tier == chrono_ledger::SecurityTier::STANDARD_RETAIL) {
+        LOG_INFO(chrono_util::LogCategory::CONSENSUS,
+                 "Ignoring STANDARD_RETAIL transaction on beacon node: {}",
+                 tx.to_string());
+        return false;
+    }
+
     // 0. Mempool size limit check
     {
         std::lock_guard<std::mutex> lock(mempool_mutex_);
-        if (mempool_.size() >= MAX_MEMPOOL_SIZE) {
+        if ((tier1_mempool_.size() + tier2_mempool_.size()) >= MAX_MEMPOOL_SIZE) {
             LOG_WARN(chrono_util::LogCategory::GENERAL, "Rejected transaction (mempool full): {}", tx.to_string());
             return false;
         }
@@ -966,14 +1039,16 @@ bool NodeApp::add_transaction_to_mempool(const chrono_ledger::Transaction& tx) {
     
     {
         std::lock_guard<std::mutex> lock(mempool_mutex_);
-        for (const auto& pending_tx : mempool_) {
-            // We use address string comparison or operator== if available
-            if (pending_tx.sender.to_string() == sender_addr) {
-                if (pending_tx.nonce >= expected_nonce) {
+        auto advance_expected_nonce = [&expected_nonce, &sender_addr](const std::vector<chrono_ledger::Transaction>& pool) {
+            for (const auto& pending_tx : pool) {
+                if (pending_tx.sender.to_string() == sender_addr && pending_tx.nonce >= expected_nonce) {
                     expected_nonce = pending_tx.nonce + 1;
                 }
             }
-        }
+        };
+        advance_expected_nonce(tier1_mempool_);
+        advance_expected_nonce(tier2_mempool_);
+        
         LOG_DEBUG(chrono_util::LogCategory::GENERAL, "[{}] Nonce check for {}: state={}, expected_after_mempool={}, tx={}", 
                   status_.node_id, sender_addr, state_.get_nonce(sender_addr), expected_nonce, tx.nonce);
     }
@@ -985,15 +1060,19 @@ bool NodeApp::add_transaction_to_mempool(const chrono_ledger::Transaction& tx) {
         return false;
     }
 
-    // 7. Duplicate detection - check if this exact transaction is already in mempool
+    // 7. Duplicate detection - check if this exact transaction is already in either mempool
     {
         std::lock_guard<std::mutex> lock(mempool_mutex_);
         Bytes tx_hash = tx.get_hash_for_signing();
-        for (const auto& existing_tx : mempool_) {
-            if (existing_tx.get_hash_for_signing() == tx_hash) {
-                LOG_WARN(chrono_util::LogCategory::GENERAL, "[{}] Rejected transaction (duplicate): {}", status_.node_id, tx.to_string());
-                return false;
-            }
+        auto has_duplicate = [&tx_hash](const std::vector<chrono_ledger::Transaction>& pool) {
+            return std::any_of(pool.begin(), pool.end(),
+                               [&tx_hash](const chrono_ledger::Transaction& existing_tx) {
+                                   return existing_tx.get_hash_for_signing() == tx_hash;
+                               });
+        };
+        if (has_duplicate(tier1_mempool_) || has_duplicate(tier2_mempool_)) {
+            LOG_WARN(chrono_util::LogCategory::GENERAL, "[{}] Rejected transaction (duplicate): {}", status_.node_id, tx.to_string());
+            return false;
         }
     }
 
@@ -1017,10 +1096,22 @@ bool NodeApp::add_transaction_to_mempool(const chrono_ledger::Transaction& tx) {
     // 9. All validations passed - add to mempool (thread-safe)
     {
         std::lock_guard<std::mutex> lock(mempool_mutex_);
-        mempool_.push_back(tx);
+        route_transaction_to_mempool(tx);
     }
     LOG_INFO(chrono_util::LogCategory::GENERAL, "[{}] Added transaction to mempool: {}", status_.node_id, tx.to_string());
     return true;
+}
+
+void NodeApp::route_transaction_to_mempool(const chrono_ledger::Transaction& tx) {
+    if (tx.tier == chrono_ledger::SecurityTier::CRITICAL_SETTLEMENT) {
+        tier1_mempool_.push_back(tx);
+    } else {
+        tier2_mempool_.push_back(tx);
+    }
+}
+
+size_t NodeApp::total_mempool_size_unsafe() const {
+    return tier1_mempool_.size() + tier2_mempool_.size();
 }
 
 /**
@@ -1033,6 +1124,11 @@ bool NodeApp::add_transaction_to_mempool(const chrono_ledger::Transaction& tx) {
 void NodeApp::publish_transaction(const chrono_ledger::Transaction& tx) {
     P2PMessage tx_envelope;
     tx_envelope.mutable_transaction()->set_transaction_data(tx.serialize().data(), tx.serialize().size());
+    tx_envelope.mutable_transaction()->set_tier(
+        tx.tier == chrono_ledger::SecurityTier::CRITICAL_SETTLEMENT
+            ? chrono_p2p::SecurityTier::CRITICAL_SETTLEMENT
+            : chrono_p2p::SecurityTier::STANDARD_RETAIL
+    );
     broadcast_message("transactions", tx_envelope);
     LOG_INFO(chrono_util::LogCategory::P2P, "Published transaction {} to network.", tx.to_string());
 }
@@ -1478,6 +1574,9 @@ void NodeApp::handle_p2p_message(const std::string& topic, const Bytes& data, co
             try {
                 received_tx = Transaction::deserialize(Bytes(received_tx_proto.transaction_data().begin(), 
                                                             received_tx_proto.transaction_data().end()));
+                received_tx.tier = received_tx_proto.tier() == chrono_p2p::SecurityTier::CRITICAL_SETTLEMENT
+                                       ? chrono_ledger::SecurityTier::CRITICAL_SETTLEMENT
+                                       : chrono_ledger::SecurityTier::STANDARD_RETAIL;
             } catch (const std::exception& e) {
                 LOG_WARN(chrono_util::LogCategory::P2P,
                          "Failed to deserialize transaction from {}: {}. Penalizing.",
@@ -1487,11 +1586,37 @@ void NodeApp::handle_p2p_message(const std::string& topic, const Bytes& data, co
             }
             
             if (add_transaction_to_mempool(received_tx)) {
-                LOG_INFO(chrono_util::LogCategory::P2P, "Received and added transaction to mempool: {}", received_tx.to_string());
+                LOG_INFO(chrono_util::LogCategory::P2P,
+                         "Received and routed transaction (tier={}) to mempool: {}",
+                         static_cast<uint8_t>(received_tx.tier), received_tx.to_string());
             } else {
                 LOG_WARN(chrono_util::LogCategory::P2P, "Failed to add transaction {} received from {}. Penalizing sender.", received_tx.to_string(), sender_id);
                 update_peer_score(sender_id, -1, true);
             }
+            break;
+        }
+        case chrono_p2p::P2PMessage::kChronosBeat: {
+            const auto& beat_msg = p2p_msg.chronos_beat();
+            const chrono_util::Bytes beat_hash = chrono_consensus::BeaconEngine::compute_beat_hash(
+                beat_msg.timestamp_ms(), beat_msg.producer_id());
+            const chrono_util::Bytes signature_bytes(beat_msg.signature().begin(), beat_msg.signature().end());
+            const chrono_util::Bytes producer_pubkey = get_validator_public_key(beat_msg.producer_id());
+
+            if (!producer_pubkey.empty() && !signer_->verify(producer_pubkey, beat_hash, signature_bytes)) {
+                LOG_WARN(chrono_util::LogCategory::CONSENSUS,
+                         "Invalid ChronosBeat signature from producer {}.",
+                         beat_msg.producer_id());
+                update_peer_score(sender_id, -5, true);
+                break;
+            }
+
+            {
+                std::lock_guard<std::mutex> beat_lock(chronos_beat_mutex_);
+                latest_chronos_beat_hash_ = beat_hash;
+            }
+            LOG_INFO(chrono_util::LogCategory::CONSENSUS,
+                     "Accepted ChronosBeat from {} hash={}",
+                     beat_msg.producer_id(), bytes_to_hex(beat_hash));
             break;
         }
         case chrono_p2p::P2PMessage::kPrevote: {
@@ -2633,4 +2758,3 @@ void NodeApp::broadcast_message(const std::string& topic, const chrono_p2p::P2PM
 }
 
 } // namespace chrono_node
-

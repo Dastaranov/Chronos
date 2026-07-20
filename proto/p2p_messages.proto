@@ -28,9 +28,21 @@ message GetTransactionsMessage {
   repeated string transaction_ids = 1;
 }
 
+enum SecurityTier {
+  STANDARD_RETAIL = 0;
+  CRITICAL_SETTLEMENT = 1;
+}
+
 message TransactionMessage {
   // Transaction will be serialized as bytes from Transaction::serialize() method
   bytes transaction_data = 1;
+  SecurityTier tier = 2;
+}
+
+message ChronosBeatMessage {
+  uint64 timestamp_ms = 1;
+  string producer_id = 2;
+  bytes signature = 3;
 }
 
 message GetPeersRequest {
@@ -68,6 +80,7 @@ message P2PMessage {
     GetSnapshotChunkMessage get_snapshot_chunk = 14;
     SnapshotChunkMessage snapshot_chunk = 15;
     MessageFragment fragment = 16;
+    ChronosBeatMessage chronos_beat = 17;
   }
 }
 

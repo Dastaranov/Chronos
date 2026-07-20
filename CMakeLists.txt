@@ -2,7 +2,7 @@ cmake_minimum_required(VERSION 3.18)
 project(chronos LANGUAGES C CXX)
 
 # Opties
-option(CHRONOS_USE_OQS "Enable PQC via liboqs (Dilithium)" ON)
+option(CHRONOS_USE_OQS "Enable PQC via liboqs (ML-DSA/ML-KEM)" ON)
 
 # Compiler instellingen
 set(CMAKE_CXX_STANDARD 20)
@@ -136,6 +136,7 @@ set(CHRONOS_LIB_SRC
     src/ledger/node_registry.cpp
     src/consensus/pot_aggregator.cpp
     src/consensus/bft.cpp
+    src/consensus/beacon_engine.cpp
     src/consensus/external_time_source_manager.cpp
     src/consensus/ntp_client.cpp
     src/consensus/ChronyBackend.cpp

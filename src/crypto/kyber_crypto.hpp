@@ -7,10 +7,9 @@
 
 namespace chrono_crypto {
 
-class KyberCrypto {
+class MLKEMCrypto {
 public:
-    // Using Kyber512 for balance between security and performance/size
-    // OQS_KEM_alg_kyber_512
+    // Using ML-KEM-512 for balance between security and performance/size.
     
     struct KeyPair {
         chrono_util::Bytes public_key;
@@ -35,5 +34,7 @@ public:
     static size_t get_ciphertext_size();
     static size_t get_shared_secret_size();
 };
+
+using KyberCrypto = MLKEMCrypto;
 
 } // namespace chrono_crypto
