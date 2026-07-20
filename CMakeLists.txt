@@ -70,6 +70,15 @@ else()
 endif()
 find_package(Protobuf REQUIRED)
 
+# Dynamically generate .pb.h/.pb.cc from proto sources.
+# Generated files land in ${CMAKE_CURRENT_BINARY_DIR}/proto/ at build time;
+# never commit .pb.h / .pb.cc – they are listed in .gitignore.
+protobuf_generate_cpp(PROTO_SRCS PROTO_HDRS
+    proto/p2p_messages.proto
+    proto/bft_messages.proto
+    proto/ledger.proto
+)
+
 find_package(Threads REQUIRED)
 find_package(OpenSSL REQUIRED)
 
@@ -152,16 +161,8 @@ set(CHRONOS_NODE_SRC
     src/main.cpp
 )
 
-set(CHRONOS_PROTO_SRC
-    src/proto/p2p_messages.pb.cc
-    src/proto/bft_messages.pb.cc
-    src/proto/ledger.pb.cc
-)
-set(CHRONOS_PROTO_HDR
-    src/proto/p2p_messages.pb.h
-    src/proto/bft_messages.pb.h
-    src/proto/ledger.pb.h
-)
+set(CHRONOS_PROTO_SRC ${PROTO_SRCS})
+set(CHRONOS_PROTO_HDR ${PROTO_HDRS})
 
 # BLAKE3 C-implementatie
 file(GLOB BLAKE3_SRC
@@ -196,7 +197,8 @@ target_include_directories(chronos_lib PUBLIC
     ${CMAKE_CURRENT_SOURCE_DIR}/src/util
     ${CMAKE_CURRENT_SOURCE_DIR}
     ${CMAKE_CURRENT_SOURCE_DIR}/external/blake3
-    ${CMAKE_CURRENT_SOURCE_DIR}/src/proto
+    ${CMAKE_CURRENT_BINARY_DIR}
+    ${CMAKE_CURRENT_BINARY_DIR}/proto
     ${nlohmann_json_SOURCE_DIR}/include
     ${tomlplusplus_SOURCE_DIR}
     ${httplib_SOURCE_DIR}
@@ -207,7 +209,7 @@ target_link_libraries(chronos_lib PUBLIC
     nlohmann_json::nlohmann_json
     tomlplusplus::tomlplusplus
     httplib::httplib
-    ${PROTOBUF_LIBRARIES}
+    Protobuf::libprotobuf
     Threads::Threads
     -lz
     -lm

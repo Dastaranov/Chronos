@@ -1,0 +1,50 @@
+name: Memory Check
+
+on:
+  push:
+    branches: ["main", "master"]
+  pull_request:
+    branches: ["main", "master"]
+
+jobs:
+  memory-check:
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Install system dependencies
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y \
+            build-essential \
+            cmake \
+            libprotobuf-dev \
+            libssl-dev \
+            libsnappy-dev \
+            libleveldb-dev \
+            liboqs-dev \
+            valgrind
+
+      - name: Install Protobuf Compiler
+        uses: arduino/setup-protoc@v3
+        with:
+          repo-token: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: Configure CMake (AddressSanitizer)
+        run: |
+          cmake -B build \
+            -DCMAKE_BUILD_TYPE=Debug \
+            -DCHRONOS_USE_OQS=OFF \
+            -DPROTOBUF_LOCAL_ROOT="" \
+            -DCMAKE_CXX_FLAGS="-fsanitize=address,undefined -fno-omit-frame-pointer" \
+            -DCMAKE_EXE_LINKER_FLAGS="-fsanitize=address,undefined"
+
+      - name: Build
+        run: cmake --build build --parallel $(nproc)
+
+      - name: Run tests under AddressSanitizer
+        run: |
+          cd build
+          ASAN_OPTIONS=detect_leaks=1 ctest --output-on-failure
