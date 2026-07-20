@@ -25,6 +25,17 @@ jobs:
             zlib1g-dev \
             valgrind
 
+      - name: Build and Install liboqs
+      run: |
+        git clone -b main https://github.com/open-quantum-safe/liboqs.git
+        cd liboqs
+        mkdir build && cd build
+        cmake -DBUILD_SHARED_LIBS=ON -DCMAKE_INSTALL_PREFIX=/usr/local ..
+        make -j4
+        sudo make install
+        sudo ldconfig
+
+
       - name: Configure CMake (Debug)
         run: |
           cmake -B build \
