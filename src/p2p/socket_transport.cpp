@@ -61,6 +61,10 @@ bool SocketTransport::listen(const std::string& addr, int port) {
 }
 
 bool SocketTransport::connect(const std::string& host, int port) {
+    if (quic_stub_enabled_) {
+        connect_quic_stub(host, port);
+    }
+
     std::string peer_address = host + ":" + std::to_string(port);
     std::lock_guard<std::mutex> lock(active_clients_mutex_);
 
@@ -148,6 +152,7 @@ void SocketTransport::handle_incoming_connection(const std::string& sender_addr,
     // For now, we pass a generic "p2p" topic. The P2PMessage structure includes the type.
     Bytes data(message.begin(), message.end()); // Convert std::string to Bytes
     message_callback_("p2p", data, sender_addr); // NEW: Pass "p2p" as topic, and sender_addr
+    handle_quic_datagram_stub(sender_addr, data);
 }
 
 void SocketTransport::client_receive_loop(const std::string& peer_address, P2pClient* client) {
@@ -169,6 +174,21 @@ void SocketTransport::client_receive_loop(const std::string& peer_address, P2pCl
         LOG_INFO(chrono_util::LogCategory::P2P, "Removed disconnected client {} from active_clients_.", peer_address);
     }
     LOG_INFO(chrono_util::LogCategory::P2P, "Receive loop for client {} terminated.", peer_address);
+}
+
+bool SocketTransport::connect_quic_stub(const std::string& host, int port) {
+    LOG_INFO(chrono_util::LogCategory::P2P,
+             "QUIC stub: would initiate UDP/QUIC connection to {}:{} (ML-KEM TLS prep only).",
+             host,
+             port);
+    return false;
+}
+
+void SocketTransport::handle_quic_datagram_stub(const std::string& sender_addr, const Bytes& datagram) {
+    LOG_DEBUG(chrono_util::LogCategory::P2P,
+              "QUIC stub: received datagram candidate from {} ({} bytes).",
+              sender_addr,
+              datagram.size());
 }
 
 } // namespace chrono_p2p

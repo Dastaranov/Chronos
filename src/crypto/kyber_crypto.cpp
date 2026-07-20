@@ -13,23 +13,23 @@ namespace chrono_crypto {
 static const char* OQS_ALG = OQS_KEM_alg_ml_kem_512; // Standardized ML-KEM-512 (Kyber)
 #endif
 
-bool KyberCrypto::init() {
+bool MLKEMCrypto::init() {
 #ifdef CHRONOS_USE_OQS
     OQS_init();
     return true;
 #else
-    LOG_WARN(chrono_util::LogCategory::CRYPTO, "LibOQS not enabled. KyberCrypto disabled.");
+    LOG_WARN(chrono_util::LogCategory::CRYPTO, "LibOQS not enabled. MLKEMCrypto disabled.");
     return false;
 #endif
 }
 
-void KyberCrypto::cleanup() {
+void MLKEMCrypto::cleanup() {
 #ifdef CHRONOS_USE_OQS
     OQS_destroy();
 #endif
 }
 
-std::optional<KyberCrypto::KeyPair> KyberCrypto::generate_keypair() {
+std::optional<MLKEMCrypto::KeyPair> MLKEMCrypto::generate_keypair() {
 #ifdef CHRONOS_USE_OQS
     OQS_KEM* kem = OQS_KEM_new(OQS_ALG);
     if (!kem) {
@@ -54,7 +54,7 @@ std::optional<KyberCrypto::KeyPair> KyberCrypto::generate_keypair() {
 #endif
 }
 
-std::optional<KyberCrypto::Encapsulation> KyberCrypto::encapsulate(const chrono_util::Bytes& public_key) {
+std::optional<MLKEMCrypto::Encapsulation> MLKEMCrypto::encapsulate(const chrono_util::Bytes& public_key) {
 #ifdef CHRONOS_USE_OQS
     OQS_KEM* kem = OQS_KEM_new(OQS_ALG);
     if (!kem) {
@@ -84,7 +84,7 @@ std::optional<KyberCrypto::Encapsulation> KyberCrypto::encapsulate(const chrono_
 #endif
 }
 
-std::optional<chrono_util::Bytes> KyberCrypto::decapsulate(const chrono_util::Bytes& ciphertext, const chrono_util::Bytes& private_key) {
+std::optional<chrono_util::Bytes> MLKEMCrypto::decapsulate(const chrono_util::Bytes& ciphertext, const chrono_util::Bytes& private_key) {
 #ifdef CHRONOS_USE_OQS
     OQS_KEM* kem = OQS_KEM_new(OQS_ALG);
     if (!kem) {
@@ -112,7 +112,7 @@ std::optional<chrono_util::Bytes> KyberCrypto::decapsulate(const chrono_util::By
 #endif
 }
 
-size_t KyberCrypto::get_public_key_size() {
+size_t MLKEMCrypto::get_public_key_size() {
 #ifdef CHRONOS_USE_OQS
     OQS_KEM* kem = OQS_KEM_new(OQS_ALG);
     size_t len = kem ? kem->length_public_key : 0;
@@ -123,7 +123,7 @@ size_t KyberCrypto::get_public_key_size() {
 #endif
 }
 
-size_t KyberCrypto::get_private_key_size() {
+size_t MLKEMCrypto::get_private_key_size() {
 #ifdef CHRONOS_USE_OQS
     OQS_KEM* kem = OQS_KEM_new(OQS_ALG);
     size_t len = kem ? kem->length_secret_key : 0;
@@ -134,7 +134,7 @@ size_t KyberCrypto::get_private_key_size() {
 #endif
 }
 
-size_t KyberCrypto::get_ciphertext_size() {
+size_t MLKEMCrypto::get_ciphertext_size() {
 #ifdef CHRONOS_USE_OQS
     OQS_KEM* kem = OQS_KEM_new(OQS_ALG);
     size_t len = kem ? kem->length_ciphertext : 0;
@@ -145,7 +145,7 @@ size_t KyberCrypto::get_ciphertext_size() {
 #endif
 }
 
-size_t KyberCrypto::get_shared_secret_size() {
+size_t MLKEMCrypto::get_shared_secret_size() {
 #ifdef CHRONOS_USE_OQS
     OQS_KEM* kem = OQS_KEM_new(OQS_ALG);
     size_t len = kem ? kem->length_shared_secret : 0;

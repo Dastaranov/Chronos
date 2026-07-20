@@ -28,7 +28,8 @@
 // #include "crypto/signer_hmac.hpp" // Removed: No longer using HMAC signer
 #include "p2p/gossip.hpp"
 #include "consensus/pot_aggregator.hpp"
-// #include "consensus/bft.hpp" // Now using unique_ptr, so forward declaration is enough
+// #include "consensus/bft.hpp"
+#include "consensus/beacon_engine.hpp" // Now using unique_ptr, so forward declaration is enough
 #include "consensus/external_time_source_manager.hpp" // NEW: Include ExternalTimeSourceManager header
 #include "ledger/node_registry.hpp" // NEW: NodeRegistry
 #include "p2p/peer_store.hpp" // NEW: PeerStore
@@ -203,8 +204,9 @@ public:
    */
   std::vector<chrono_ledger::Transaction> get_mempool_const() const {
       std::lock_guard<std::mutex> lock(mempool_mutex_);
-      // LOG_DEBUG(chrono_util::LogCategory::GENERAL, "get_mempool_const called, size: {}", mempool_.size());
-      return mempool_;
+      std::vector<chrono_ledger::Transaction> all = tier2_mempool_;
+      all.insert(all.end(), tier1_mempool_.begin(), tier1_mempool_.end());
+      return all;
   }
 
   /**
@@ -399,6 +401,18 @@ private:
                                      const chrono_util::Bytes& signature) const;
 
   /**
+   * @brief Routes a transaction into the appropriate mempool tier container.
+   * @param tx Transaction to route.
+   */
+  void route_transaction_to_mempool(const chrono_ledger::Transaction& tx);
+
+  /**
+   * @brief Returns total number of pending transactions across both tiers.
+   * @return Combined mempool size.
+   */
+  size_t total_mempool_size_unsafe() const;
+
+  /**
    * @brief Looks up public key for a validator from configuration.
    *
    * @param validator_id Address/ID of validator.
@@ -440,15 +454,17 @@ private:
 
   // External Time Source Management
   std::unique_ptr<chrono_consensus::ExternalTimeSourceManager> external_time_manager_; ///< @var Manages external time sources for PoT.
+  std::unique_ptr<chrono_consensus::BeaconEngine> beacon_engine_; ///< @var Layer 1 beacon producer in beacon mode.
 
   // RPC Interface
   std::unique_ptr<chrono_node::JsonRpcServer> rpc_; ///< @var The JSON-RPC server for external communication.
 
   // Mempool
-  std::vector<chrono_ledger::Transaction> mempool_; ///< @var A pool of pending transactions.
+  std::vector<chrono_ledger::Transaction> tier1_mempool_; ///< @var CRITICAL_SETTLEMENT transactions.
+  std::vector<chrono_ledger::Transaction> tier2_mempool_; ///< @var STANDARD_RETAIL transactions.
 
   // Mutexes for thread-safe access to shared data
-  mutable std::mutex mempool_mutex_;         ///< @var Protects access to mempool_.
+  mutable std::mutex mempool_mutex_;         ///< @var Protects access to tiered mempool containers.
 
   // Pending blocks that arrived before their round started
   // Key: {height, round}
@@ -457,6 +473,7 @@ private:
 
   mutable std::mutex peers_mutex_;           ///< @var Protects access to connected_peers_.
   mutable std::mutex blockchain_state_mutex_; ///< @var Protects access to last_block_hash_ and next_block_height_.
+  mutable std::mutex chronos_beat_mutex_;      ///< @var Protects latest ChronosBeat hash tracking.
 
   // Timing and intervals for periodic tasks
   std::chrono::steady_clock::time_point last_peer_discovery_time_;       ///< @var Timestamp of the last peer discovery broadcast.
@@ -472,6 +489,7 @@ private:
   chrono_util::Bytes last_block_hash_; ///< @var The hash of the most recent block in the chain.
   uint64_t next_block_height_;     ///< @var The height of the next block to be added.
   chrono_util::Bytes genesis_block_hash_; ///< @var The hash of the genesis block.
+  chrono_util::Bytes latest_chronos_beat_hash_; ///< @var Latest received Layer 1 ChronosBeat hash.
 
   /**
    * @brief Calculates the block reward for a given height based on tokenomics.
