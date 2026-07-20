@@ -4,18 +4,18 @@
 
 /**
  * @file signer_dilithium.cpp
- * @brief This file implements the SignerDilithium class, providing Dilithium post-quantum digital signature functionalities.
+ * @brief This file implements the SignerMLDSA class, providing ML-DSA post-quantum digital signature functionalities.
  *
  * This implementation leverages the Open Quantum Safe (OQS) library to perform Dilithium-3
  * key generation, message signing, and signature verification. It ensures secure handling
  * of cryptographic keys and provides robust error checking for all operations.
  *
  * Key functions implemented:
- * - `SignerDilithium::SignerDilithium()`: Generates a new Dilithium-3 key pair.
- * - `SignerDilithium::~SignerDilithium()`: Frees allocated cryptographic resources.
- * - `SignerDilithium::get_public_key()`: Returns the public key.
- * - `SignerDilithium::sign()`: Signs a message using the private key.
- * - `SignerDilithium::verify_static()`: Verifies a signature using a public key.
+ * - `SignerMLDSA::SignerMLDSA()`: Generates a new ML-DSA-65 key pair.
+ * - `SignerMLDSA::~SignerMLDSA()`: Frees allocated cryptographic resources.
+ * - `SignerMLDSA::get_public_key()`: Returns the public key.
+ * - `SignerMLDSA::sign()`: Signs a message using the private key.
+ * - `SignerMLDSA::verify_static()`: Verifies a signature using a public key.
  */
 
 #include "crypto/signer_dilithium.hpp"
@@ -26,7 +26,7 @@
 
 namespace chrono_crypto {
 
-bool SignerDilithium::generate_key_pair(Bytes& public_key, Bytes& private_key) {
+bool SignerMLDSA::generate_key_pair(Bytes& public_key, Bytes& private_key) {
     OQS_SIG* sig = OQS_SIG_new(OQS_SIG_alg_ml_dsa_65);
     if (sig == nullptr) {
         LOG_ERROR(chrono_util::LogCategory::CRYPTO, "Failed to create OQS_SIG for key generation");
@@ -42,23 +42,23 @@ bool SignerDilithium::generate_key_pair(Bytes& public_key, Bytes& private_key) {
     return success;
 }
 
-SignerDilithium::SignerDilithium() {
+SignerMLDSA::SignerMLDSA() {
     sig = OQS_SIG_new(OQS_SIG_alg_ml_dsa_65);
     if (sig == nullptr) {
         throw std::runtime_error("Failed to create OQS_SIG for ML-DSA-65");
     }
 
     Bytes full_private_key;
-    if (!generate_key_pair(public_key, full_private_key)) {
+    if (!generate_key_pair(public_key_, full_private_key)) {
         OQS_SIG_free(sig);
-        throw std::runtime_error("Failed to generate Dilithium keypair in constructor");
+        throw std::runtime_error("Failed to generate ML-DSA keypair in constructor");
     }
 
-    private_key = new uint8_t[sig->length_secret_key];
-    std::memcpy(private_key, full_private_key.data(), sig->length_secret_key);
+    private_key_ = new uint8_t[sig->length_secret_key];
+    std::memcpy(private_key_, full_private_key.data(), sig->length_secret_key);
 }
 
-SignerDilithium::SignerDilithium(const Bytes& public_key_bytes, const Bytes& private_key_bytes) {
+SignerMLDSA::SignerMLDSA(const Bytes& public_key_bytes, const Bytes& private_key_bytes) {
     sig = OQS_SIG_new(OQS_SIG_alg_ml_dsa_65);
     if (sig == nullptr) {
         throw std::runtime_error("Failed to create OQS_SIG for ML-DSA-65");
@@ -66,23 +66,23 @@ SignerDilithium::SignerDilithium(const Bytes& public_key_bytes, const Bytes& pri
 
     if (private_key_bytes.size() != sig->length_secret_key) {
         OQS_SIG_free(sig);
-        throw std::invalid_argument("Invalid private key size for Dilithium-3");
+        throw std::invalid_argument("Invalid private key size for ML-DSA-65");
     }
     
     if (public_key_bytes.size() != sig->length_public_key) {
         OQS_SIG_free(sig);
-        throw std::invalid_argument("Invalid public key size for Dilithium-3");
+        throw std::invalid_argument("Invalid public key size for ML-DSA-65");
     }
 
     // Allocate and copy the full private key
-    private_key = new uint8_t[sig->length_secret_key];
-    std::memcpy(private_key, private_key_bytes.data(), sig->length_secret_key);
+    private_key_ = new uint8_t[sig->length_secret_key];
+    std::memcpy(private_key_, private_key_bytes.data(), sig->length_secret_key);
 
     // Copy public key
-    public_key = public_key_bytes;
+    public_key_ = public_key_bytes;
 }
 
-SignerDilithium::SignerDilithium(const Bytes& private_key_bytes) {
+SignerMLDSA::SignerMLDSA(const Bytes& private_key_bytes) {
     sig = OQS_SIG_new(OQS_SIG_alg_ml_dsa_65);
     if (sig == nullptr) {
         throw std::runtime_error("Failed to create OQS_SIG for ML-DSA-65");
@@ -90,41 +90,41 @@ SignerDilithium::SignerDilithium(const Bytes& private_key_bytes) {
 
     if (private_key_bytes.size() != sig->length_secret_key) {
         OQS_SIG_free(sig);
-        throw std::invalid_argument("Invalid private key size for Dilithium-3");
+        throw std::invalid_argument("Invalid private key size for ML-DSA-65");
     }
 
     // Allocate and copy the full private key
-    private_key = new uint8_t[sig->length_secret_key];
-    std::memcpy(private_key, private_key_bytes.data(), sig->length_secret_key);
+    private_key_ = new uint8_t[sig->length_secret_key];
+    std::memcpy(private_key_, private_key_bytes.data(), sig->length_secret_key);
 
     // Extract the public key from the end of the private key data
     // WARNING: This assumes the private key format includes the public key at the end.
     // This is NOT guaranteed by liboqs and has been observed to fail.
     // Use the constructor taking both keys if possible.
-    public_key.resize(sig->length_public_key);
-    const uint8_t* pk_start_ptr = private_key + (sig->length_secret_key - sig->length_public_key);
-    std::memcpy(public_key.data(), pk_start_ptr, sig->length_public_key);
+    public_key_.resize(sig->length_public_key);
+    const uint8_t* pk_start_ptr = private_key_ + (sig->length_secret_key - sig->length_public_key);
+    std::memcpy(public_key_.data(), pk_start_ptr, sig->length_public_key);
     
-    LOG_WARN(chrono_util::LogCategory::CRYPTO, "SignerDilithium initialized with private key only. Public key extraction may be incorrect.");
+    LOG_WARN(chrono_util::LogCategory::CRYPTO, "SignerMLDSA initialized with private key only. Public key extraction may be incorrect.");
 }
 
 
 /**
- * @brief Destroys the SignerDilithium object and securely frees cryptographic resources.
+ * @brief Destroys the SignerMLDSA object and securely frees cryptographic resources.
  *
  * This destructor is responsible for releasing the OQS_SIG context and securely deleting
  * the private key array to prevent memory leaks and ensure that sensitive key material
  * is not left in memory.
  */
-SignerDilithium::~SignerDilithium() {
+SignerMLDSA::~SignerMLDSA() {
     if (sig) {
         OQS_SIG_free(sig);
     }
     // Securely clear and delete the private key
-    if (private_key) {
-        OQS_MEM_cleanse(private_key, sig->length_secret_key);
-        delete[] private_key;
-        private_key = nullptr; // Prevent double free
+    if (private_key_) {
+        OQS_MEM_cleanse(private_key_, sig->length_secret_key);
+        delete[] private_key_;
+        private_key_ = nullptr; // Prevent double free
     }
 }
 
@@ -134,34 +134,34 @@ SignerDilithium::~SignerDilithium() {
  * @return A `Bytes` object containing the public key. This key can be safely shared
  *         for signature verification.
  */
-Bytes SignerDilithium::get_public_key() const {
-    return public_key;
+Bytes SignerMLDSA::get_public_key() const {
+    return public_key_;
 }
 
 /**
  * @brief Signs a given message using the Dilithium-3 private key.
  *
  * This method takes a message and computes its digital signature using the private key
- * associated with this `SignerDilithium` instance. The signature is generated using
+ * associated with this `SignerMLDSA` instance. The signature is generated using
  * the OQS_SIG_sign function.
  *
  * @param message The message to be signed, represented as a `Bytes` object.
  * @return A `Bytes` object containing the generated Dilithium-3 signature.
  * @throw std::runtime_error if the signing operation fails.
  */
-Bytes SignerDilithium::sign(const Bytes& message) const {
+Bytes SignerMLDSA::sign(const Bytes& message) const {
     Bytes signature;
     signature.resize(sig->length_signature);
     size_t signature_len;
 
-    if (OQS_SIG_sign(sig, signature.data(), &signature_len, message.data(), message.size(), private_key) != OQS_SUCCESS) {
-        LOG_ERROR(chrono_util::LogCategory::CRYPTO, "Failed to sign message with Dilithium-3");
-        throw std::runtime_error("Failed to sign message with Dilithium-3");
+    if (OQS_SIG_sign(sig, signature.data(), &signature_len, message.data(), message.size(), private_key_) != OQS_SUCCESS) {
+        LOG_ERROR(chrono_util::LogCategory::CRYPTO, "Failed to sign message with ML-DSA-65");
+        throw std::runtime_error("Failed to sign message with ML-DSA-65");
     }
     signature.resize(signature_len); // Adjust size to actual signature length
 
     // Self-verify to ensure signature is valid
-    if (OQS_SIG_verify(sig, message.data(), message.size(), signature.data(), signature.size(), public_key.data()) != OQS_SUCCESS) {
+    if (OQS_SIG_verify(sig, message.data(), message.size(), signature.data(), signature.size(), public_key_.data()) != OQS_SUCCESS) {
         LOG_ERROR(chrono_util::LogCategory::CRYPTO, "Self-verification failed immediately after signing!");
         // throw std::runtime_error("Self-verification failed");
     }
@@ -175,14 +175,14 @@ Bytes SignerDilithium::sign(const Bytes& message) const {
  * This static method verifies if a given signature is valid for a specific message and public key.
  * It creates a temporary OQS_SIG context for verification, performs the check using OQS_SIG_verify,
  * and then frees the temporary context. This approach allows verification without needing an
- * existing `SignerDilithium` instance.
+ * existing `SignerMLDSA` instance.
  *
  * @param public_key The public key used for verification, as a `Bytes` object.
  * @param message The original message that was signed, as a `Bytes` object.
  * @param signature The Dilithium-3 signature to be verified, as a `Bytes` object.
  * @return `true` if the signature is valid, `false` otherwise.
  */
-bool SignerDilithium::verify_static(const Bytes& public_key, const Bytes& message, const Bytes& signature) {
+bool SignerMLDSA::verify_static(const Bytes& public_key, const Bytes& message, const Bytes& signature) {
     OQS_SIG* sig = OQS_SIG_new(OQS_SIG_alg_ml_dsa_65); // Use correct algorithm name
     if (sig == nullptr) {
         LOG_ERROR(chrono_util::LogCategory::CRYPTO, "Failed to create OQS_SIG for ML-DSA-65 verification");
@@ -192,7 +192,7 @@ bool SignerDilithium::verify_static(const Bytes& public_key, const Bytes& messag
     bool is_valid = (OQS_SIG_verify(sig, message.data(), message.size(), signature.data(), signature.size(), public_key.data()) == OQS_SUCCESS);
     
     if (!is_valid) {
-        LOG_WARN(chrono_util::LogCategory::CRYPTO, "Dilithium verification failed. MsgLen: {}, SigLen: {}, PubKeyLen: {}", 
+        LOG_WARN(chrono_util::LogCategory::CRYPTO, "ML-DSA verification failed. MsgLen: {}, SigLen: {}, PubKeyLen: {}", 
                  message.size(), signature.size(), public_key.size());
     }
 
@@ -200,11 +200,11 @@ bool SignerDilithium::verify_static(const Bytes& public_key, const Bytes& messag
     return is_valid;
 }
 
-std::string SignerDilithium::get_address() const {
+std::string SignerMLDSA::get_address() const {
     return chrono_address::Address(get_public_key()).to_string();
 }
 
-Bytes SignerDilithium::sign_message(const Bytes& message_bytes) const {
+Bytes SignerMLDSA::sign_message(const Bytes& message_bytes) const {
     return sign(message_bytes);
 }
 

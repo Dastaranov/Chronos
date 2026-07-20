@@ -59,7 +59,7 @@ Transaction::Transaction(const chrono_address::Address& sender,
     if (!sender.is_valid() || !recipient.is_valid()) {
         throw std::invalid_argument("Sender or recipient address is invalid.");
     }
-    if (amount == 0 && fee == 0 && type == TransactionType::TRANSFER) {
+    if (amount == 0 && fee == 0 && type == TransactionType::STANDARD) {
         throw std::invalid_argument("Transfer transaction must have amount or fee.");
     }
     // Check for overflow when summing amount and fee
@@ -335,7 +335,7 @@ void Transaction::from_json(const nlohmann::json& j) {
     if (j.contains("type")) {
         type = static_cast<TransactionType>(j.at("type").get<uint8_t>());
     } else {
-        type = TransactionType::TRANSFER;
+        type = TransactionType::STANDARD;
     }
     sender = chrono_address::Address(j.at("sender").get<std::string>()); // Assuming Address has a constructor from string
     recipient = chrono_address::Address(j.at("recipient").get<std::string>()); // Assuming Address has a constructor from string
