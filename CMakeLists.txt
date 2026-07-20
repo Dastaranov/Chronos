@@ -308,6 +308,12 @@ endif()
 enable_testing()
 add_test(NAME chronos_tests COMMAND chronos_tests)
 
+# -------------------------------
+# Dummy smoke-test (CI validation)
+# -------------------------------
+add_executable(dummy_tests tests/dummy_test.cpp)
+add_test(NAME dummy_tests COMMAND dummy_tests)
+
 
 # -------------------------------
 # Install rules
