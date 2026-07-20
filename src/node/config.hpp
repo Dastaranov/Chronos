@@ -43,6 +43,7 @@ enum class NodeType {
 struct Config {
     // Core settings
     NodeType node_type = NodeType::FULL; ///< @var node_type The operational type of this node (Full or Light). Defaults to Full.
+    bool is_beacon_node = false; ///< @var is_beacon_node Enables Layer 1 ChronosBeat-only beacon behavior.
     std::string data_dir = "data"; ///< @var data_dir The directory where the node stores its blockchain data. Defaults to "data".
     int rpc_port = 8080; ///< @var rpc_port The port number on which the node's RPC (Remote Procedure Call) server listens. Defaults to 8080.
     std::string rpc_bind_ip = "127.0.0.1"; ///< @var rpc_bind_ip The IP address to bind the RPC server to. Defaults to localhost for security.

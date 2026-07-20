@@ -17,11 +17,15 @@
 #include "util/codec.hpp"
 #include <stdexcept>
 #include <nlohmann/json.hpp>
+#include <algorithm>
+#include <chrono>
 
 namespace chrono_ledger {
 
 /// @brief The key used to store and retrieve the entire balances map in the key-value store.
 const chrono_util::Bytes BALANCES_KEY = chrono_util::string_to_bytes("_BALANCES_");
+constexpr uint64_t ENERGY_TOKEN_TTL_SECONDS = 900;
+constexpr uint64_t PENDING_SETTLEMENT_SECONDS = 60;
 
 /**
  * @brief Constructs a State object.
@@ -30,6 +34,21 @@ const chrono_util::Bytes BALANCES_KEY = chrono_util::string_to_bytes("_BALANCES_
 State::State(chrono_storage::IKv& kv_store) : kv_store_(kv_store) {
     // Upon construction, load the balances from the key-value store.
     load_balances();
+    pruning_thread_ = std::thread(&State::pruning_worker_loop, this);
+}
+
+State::~State() {
+    stop_background_tasks_ = true;
+    prune_cv_.notify_all();
+    if (pruning_thread_.joinable()) {
+        pruning_thread_.join();
+    }
+}
+
+uint64_t State::current_unix_seconds() {
+    return static_cast<uint64_t>(
+        std::chrono::duration_cast<std::chrono::seconds>(
+            std::chrono::system_clock::now().time_since_epoch()).count());
 }
 
 /**
@@ -61,6 +80,15 @@ void State::load_balances() {
 
                 if (balances_json.contains("node_registry")) {
                     node_registry_.from_json(balances_json.at("node_registry"));
+                }
+                if (balances_json.contains("daily_limits")) {
+                    daily_limits_ = balances_json.at("daily_limits").get<std::unordered_map<std::string, uint64_t>>();
+                }
+                if (balances_json.contains("spent_today")) {
+                    spent_today_ = balances_json.at("spent_today").get<std::unordered_map<std::string, uint64_t>>();
+                }
+                if (balances_json.contains("spent_day_epoch")) {
+                    spent_day_epoch_ = balances_json.at("spent_day_epoch").get<std::unordered_map<std::string, uint64_t>>();
                 }
             } else {
                 // Legacy format: root object is the map
@@ -104,6 +132,9 @@ void State::save_balances() {
     }
     j["validator_keys"] = keys_hex;
     j["node_registry"] = node_registry_.to_json();
+    j["daily_limits"] = daily_limits_;
+    j["spent_today"] = spent_today_;
+    j["spent_day_epoch"] = spent_day_epoch_;
 
     kv_store_.put(BALANCES_KEY, chrono_util::string_to_bytes(j.dump()));
 }
@@ -152,185 +183,392 @@ uint64_t State::get_nonce(const std::string& addr) const {
 bool State::apply_transaction(const Transaction& tx) {
     std::lock_guard<std::mutex> lock(balances_mutex_);
     std::string sender_addr = tx.sender.to_string();
-    
+
     auto it_sender = balances_.find(sender_addr);
     if (it_sender == balances_.end()) {
         return false; // Sender not found
     }
 
     uint64_t sender_balance = it_sender->second;
+    const uint64_t now_seconds = current_unix_seconds();
+    process_pending_settlements_locked(now_seconds);
 
-    if (tx.type == TransactionType::KEY_ROTATION) {
-        // Key rotation must have 0 amount
-        if (tx.amount > 0) {
-            return false;
-        }
-
-        // For key rotation, we only deduct the fee
-        if (sender_balance < tx.fee) {
-            return false; // Insufficient funds for fee
-        }
-        
-        if (tx.payload.empty()) {
-            return false; // Missing new key
-        }
-
-        // Debit the sender (fee only)
-        balances_[sender_addr] = sender_balance - tx.fee;
-        
-        // Update the validator key
-        validator_keys_[sender_addr] = tx.payload;
-    } else if (tx.type == TransactionType::STAKE_REGISTRATION) {
-        // Check for sufficient funds (amount + fee)
-        if (sender_balance < tx.amount + tx.fee) {
-            return false;
-        }
-
-        // Deduct amount + fee from sender
-        balances_[sender_addr] = sender_balance - (tx.amount + tx.fee);
-
-        // Register node
-        uint8_t time_tier = 5; // Default to NTP
-        std::string name;
-        
-        if (!tx.payload.empty()) {
-            // Check if first byte is a valid tier (1-5)
-            if (tx.payload[0] >= 1 && tx.payload[0] <= 5) {
-                time_tier = tx.payload[0];
-                if (tx.payload.size() > 1) {
-                    name = std::string(tx.payload.begin() + 1, tx.payload.end());
-                }
-            } else {
-                // Legacy format: payload is just the name
-                name = std::string(tx.payload.begin(), tx.payload.end());
+    switch (tx.type) {
+        case TransactionType::STANDARD:
+            if (!queue_pending_settlement_locked(tx, now_seconds)) {
+                return false;
             }
-        }
+            break;
+        case TransactionType::ENERGY_MINT:
+            if (!apply_energy_mint_locked(tx, sender_addr, sender_balance, now_seconds)) {
+                return false;
+            }
+            break;
+        case TransactionType::ENERGY_FALLBACK:
+            if (!apply_energy_fallback_locked(tx, sender_addr, sender_balance, now_seconds)) {
+                return false;
+            }
+            break;
+        case TransactionType::ENERGY_MATCH:
+            if (!apply_standard_transfer_locked(tx, sender_addr, sender_balance)) {
+                return false;
+            }
+            break;
+        case TransactionType::KEY_ROTATION:
+            if (tx.amount > 0 || sender_balance < tx.fee || tx.payload.empty()) {
+                return false;
+            }
+            balances_[sender_addr] = sender_balance - tx.fee;
+            validator_keys_[sender_addr] = tx.payload;
+            nonces_[sender_addr]++;
+            if (total_circulating_supply_ >= tx.fee) {
+                total_circulating_supply_ -= tx.fee;
+            } else {
+                total_circulating_supply_ = 0;
+            }
+            break;
+        case TransactionType::STAKE_REGISTRATION: {
+            if (tx.amount > (UINT64_MAX - tx.fee) || sender_balance < tx.amount + tx.fee) {
+                return false;
+            }
+            balances_[sender_addr] = sender_balance - (tx.amount + tx.fee);
 
-        std::string public_key_hex = chrono_util::bytes_to_hex(tx.public_key);
-        if (!node_registry_.register_node(sender_addr, public_key_hex, name, tx.amount, time_tier)) {
-            // Registration failed (e.g. already registered)
-            balances_[sender_addr] = sender_balance; // Revert
+            uint8_t time_tier = 5;
+            std::string name;
+            if (!tx.payload.empty()) {
+                if (tx.payload[0] >= 1 && tx.payload[0] <= 5) {
+                    time_tier = tx.payload[0];
+                    if (tx.payload.size() > 1) {
+                        name = std::string(tx.payload.begin() + 1, tx.payload.end());
+                    }
+                } else {
+                    name = std::string(tx.payload.begin(), tx.payload.end());
+                }
+            }
+            std::string public_key_hex = chrono_util::bytes_to_hex(tx.public_key);
+            if (!node_registry_.register_node(sender_addr, public_key_hex, name, tx.amount, time_tier)) {
+                balances_[sender_addr] = sender_balance;
+                return false;
+            }
+            if (total_circulating_supply_ >= tx.amount + tx.fee) {
+                total_circulating_supply_ -= (tx.amount + tx.fee);
+            } else {
+                total_circulating_supply_ = 0;
+            }
+            nonces_[sender_addr]++;
+            break;
+        }
+        case TransactionType::UNSTAKE: {
+            auto node_opt = node_registry_.get_node(sender_addr);
+            if (!node_opt || sender_balance < tx.fee) {
+                return false;
+            }
+
+            uint64_t unstake_amount = tx.amount;
+            if (unstake_amount == 0 || unstake_amount > node_opt->stake_nanos) {
+                unstake_amount = node_opt->stake_nanos;
+            }
+            node_registry_.update_stake(sender_addr, -static_cast<int64_t>(unstake_amount));
+            balances_[sender_addr] = sender_balance - tx.fee + unstake_amount;
+            total_circulating_supply_ = total_circulating_supply_ - tx.fee + unstake_amount;
+            nonces_[sender_addr]++;
+            break;
+        }
+        case TransactionType::VOTE: {
+            if (sender_balance < tx.fee) {
+                return false;
+            }
+            std::string candidate_id(tx.payload.begin(), tx.payload.end());
+            if (!node_registry_.vote_for_node(sender_addr, candidate_id)) {
+                return false;
+            }
+            auto active_validators = node_registry_.get_active_validators(0);
+            node_registry_.check_approval(candidate_id, active_validators.size());
+            balances_[sender_addr] = sender_balance - tx.fee;
+            if (total_circulating_supply_ >= tx.fee) {
+                total_circulating_supply_ -= tx.fee;
+            } else {
+                total_circulating_supply_ = 0;
+            }
+            nonces_[sender_addr]++;
+            break;
+        }
+        case TransactionType::PROPOSAL_UPGRADE:
+            if (sender_balance < tx.fee) {
+                return false;
+            }
+            balances_[sender_addr] = sender_balance - tx.fee;
+            if (total_circulating_supply_ >= tx.fee) {
+                total_circulating_supply_ -= tx.fee;
+            } else {
+                total_circulating_supply_ = 0;
+            }
+            nonces_[sender_addr]++;
+            break;
+        default:
             return false;
-        }
-
-        // Update supply: fee is removed, stake is locked (removed from circulating)
-        if (total_circulating_supply_ >= tx.amount + tx.fee) {
-            total_circulating_supply_ -= (tx.amount + tx.fee);
-        } else {
-            total_circulating_supply_ = 0;
-        }
-    } else if (tx.type == TransactionType::UNSTAKE) {
-        // Check if registered
-        auto node_opt = node_registry_.get_node(sender_addr);
-        if (!node_opt) return false;
-
-        // Check fee
-        if (sender_balance < tx.fee) return false;
-
-        // Unregister/Reduce stake
-        uint64_t unstake_amount = tx.amount;
-        if (unstake_amount == 0 || unstake_amount > node_opt->stake_nanos) {
-            unstake_amount = node_opt->stake_nanos;
-        }
-
-        node_registry_.update_stake(sender_addr, -static_cast<int64_t>(unstake_amount));
-        if (node_registry_.get_node(sender_addr)->stake_nanos == 0) {
-             // If stake is 0, maybe unregister? For now just leave as suspended/0 stake
-        }
-
-        // Credit back to balance (minus fee)
-        balances_[sender_addr] = sender_balance - tx.fee + unstake_amount;
-
-        // Update supply: fee removed, unstake added
-        total_circulating_supply_ = total_circulating_supply_ - tx.fee + unstake_amount;
-    } else if (tx.type == TransactionType::VOTE) {
-        // Check fee
-        if (sender_balance < tx.fee) return false;
-
-        std::string candidate_id(tx.payload.begin(), tx.payload.end());
-        
-        // Attempt to vote
-        if (!node_registry_.vote_for_node(sender_addr, candidate_id)) {
-            return false; // Vote failed
-        }
-
-        // Check approval status
-        // Note: We use a default min_stake of 0 here as State doesn't know config.
-        // In production, this should be injected or stored in State.
-        auto active_validators = node_registry_.get_active_validators(0);
-        node_registry_.check_approval(candidate_id, active_validators.size());
-
-        // Deduct fee
-        balances_[sender_addr] = sender_balance - tx.fee;
-        
-        // Update supply
-        if (total_circulating_supply_ >= tx.fee) {
-            total_circulating_supply_ -= tx.fee;
-        } else {
-            total_circulating_supply_ = 0;
-        }
-    } else if (tx.type == TransactionType::PROPOSAL_UPGRADE) {
-        // Check fee (Upgrades should have high fees to prevent spam)
-        if (sender_balance < tx.fee) return false;
-
-        // TODO: Implement ProposalRegistry to store upgrade proposals
-        // Payload should contain: version, activation_height, description
-        // For now, we just deduct the fee and log it.
-        
-        // Deduct fee
-        balances_[sender_addr] = sender_balance - tx.fee;
-        
-        // Update supply
-        if (total_circulating_supply_ >= tx.fee) {
-            total_circulating_supply_ -= tx.fee;
-        } else {
-            total_circulating_supply_ = 0;
-        }
-    } else {
-        // Standard TRANSFER
-        std::string recipient_addr = tx.recipient.to_string();
-        uint64_t total_amount = tx.amount + tx.fee;
-
-        // Check for arithmetic overflow before calculating total amount
-        if (tx.amount > (UINT64_MAX - tx.fee)) {
-            return false; // Overflow
-        }
-
-        // Check for sufficient funds
-        if (sender_balance < total_amount) {
-            return false; // Insufficient funds
-        }
-
-        // Debit the sender
-        balances_[sender_addr] = sender_balance - total_amount;
-        
-        // Credit the recipient
-        auto it_recipient = balances_.find(recipient_addr);
-        uint64_t current_recipient_balance = (it_recipient != balances_.end()) ? it_recipient->second : 0;
-
-        // Check for overflow before crediting recipient
-        if (current_recipient_balance > (UINT64_MAX - tx.amount)) {
-            balances_[sender_addr] = sender_balance; // Revert sender's balance change on failure
-            return false; // Overflow
-        }
-        balances_[recipient_addr] = current_recipient_balance + tx.amount;
     }
 
-    // Update total circulating supply (fee is temporarily removed from circulation)
-    // It will be re-added when credited to the validator in add_block (minus burn)
+    prune_expired_energy_tokens_locked(now_seconds);
+    save_balances();
+    return true;
+}
+
+bool State::apply_committed_standard_transfer_locked(const Transaction& tx,
+                                                     const std::string& sender_addr,
+                                                     uint64_t sender_balance,
+                                                     bool increment_nonce) {
+    if (tx.amount > (UINT64_MAX - tx.fee)) {
+        return false;
+    }
+    const uint64_t total_amount = tx.amount + tx.fee;
+    if (sender_balance < total_amount) {
+        return false;
+    }
+
+    const uint64_t now_seconds = current_unix_seconds();
+    if (!enforce_daily_limit_locked(sender_addr, tx.amount, now_seconds)) {
+        return false;
+    }
+
+    std::string recipient_addr = tx.recipient.to_string();
+    auto it_recipient = balances_.find(recipient_addr);
+    uint64_t current_recipient_balance = (it_recipient != balances_.end()) ? it_recipient->second : 0;
+    if (current_recipient_balance > (UINT64_MAX - tx.amount)) {
+        return false;
+    }
+
+    balances_[sender_addr] = sender_balance - total_amount;
+    balances_[recipient_addr] = current_recipient_balance + tx.amount;
+
     if (total_circulating_supply_ >= tx.fee) {
         total_circulating_supply_ -= tx.fee;
     } else {
-        // Should not happen if logic is correct, but safety check
-        total_circulating_supply_ = 0; 
+        total_circulating_supply_ = 0;
     }
 
-    // Increment sender's nonce
-    nonces_[sender_addr]++;
+    if (increment_nonce) {
+        nonces_[sender_addr]++;
+    }
+    return true;
+}
 
-    // Persist the new state
+bool State::apply_standard_transfer_locked(const Transaction& tx,
+                                           const std::string& sender_addr,
+                                           uint64_t sender_balance) {
+    return apply_committed_standard_transfer_locked(tx, sender_addr, sender_balance, true);
+}
+
+bool State::queue_pending_settlement_locked(const Transaction& tx, uint64_t now_seconds) {
+    const std::string tx_id = chrono_util::bytes_to_hex(tx.get_hash());
+    auto duplicate = std::find_if(
+        pending_settlement_.begin(), pending_settlement_.end(),
+        [&tx_id](const PendingSettlementEntry& entry) { return entry.tx_id == tx_id; });
+    if (duplicate != pending_settlement_.end()) {
+        return false;
+    }
+
+    pending_settlement_.push_back(PendingSettlementEntry{tx, now_seconds, tx_id});
+    return true;
+}
+
+bool State::enforce_daily_limit_locked(const std::string& sender_addr, uint64_t amount, uint64_t now_seconds) {
+    const auto limit_it = daily_limits_.find(sender_addr);
+    if (limit_it == daily_limits_.end() || limit_it->second == 0) {
+        return true;
+    }
+
+    const uint64_t day_index = now_seconds / 86400;
+    if (spent_day_epoch_[sender_addr] != day_index) {
+        spent_day_epoch_[sender_addr] = day_index;
+        spent_today_[sender_addr] = 0;
+    }
+
+    uint64_t current_spent = spent_today_[sender_addr];
+    if (current_spent > (UINT64_MAX - amount)) {
+        return false;
+    }
+    if (current_spent + amount > limit_it->second) {
+        return false;
+    }
+
+    spent_today_[sender_addr] = current_spent + amount;
+    return true;
+}
+
+bool State::apply_energy_mint_locked(const Transaction& tx,
+                                     const std::string& sender_addr,
+                                     uint64_t sender_balance,
+                                     uint64_t now_seconds) {
+    if (sender_balance < tx.fee) {
+        return false;
+    }
+
+    uint64_t minted_amount = tx.amount;
+    if (minted_amount == 0 && tx.payload.size() >= sizeof(uint64_t)) {
+        size_t offset = 0;
+        minted_amount = chrono_util::read_fixed_uint64_le(tx.payload, offset);
+    }
+    if (minted_amount == 0) {
+        return false;
+    }
+
+    const std::string token_id = chrono_util::bytes_to_hex(tx.get_hash());
+    const std::string owner = tx.recipient.to_string().empty() ? sender_addr : tx.recipient.to_string();
+    energy_tokens_[token_id] = EnergyTokenMeta{owner, minted_amount, now_seconds};
+    expiration_index_[now_seconds].push_back(token_id);
+
+    balances_[sender_addr] = sender_balance - tx.fee;
+    if (total_circulating_supply_ >= tx.fee) {
+        total_circulating_supply_ -= tx.fee;
+    } else {
+        total_circulating_supply_ = 0;
+    }
+    nonces_[sender_addr]++;
+    return true;
+}
+
+bool State::apply_energy_fallback_locked(const Transaction& tx,
+                                         const std::string& sender_addr,
+                                         uint64_t sender_balance,
+                                         uint64_t now_seconds) {
+    if (sender_balance < tx.fee) {
+        return false;
+    }
+
+    uint64_t moved_amount = 0;
+    std::vector<TokenID> consumed_ids;
+    if (!tx.payload.empty()) {
+        std::string token_id(tx.payload.begin(), tx.payload.end());
+        auto token_it = energy_tokens_.find(token_id);
+        if (token_it != energy_tokens_.end() &&
+            token_it->second.owner == sender_addr &&
+            now_seconds > token_it->second.created_at + ENERGY_TOKEN_TTL_SECONDS) {
+            moved_amount += token_it->second.amount;
+            consumed_ids.push_back(token_id);
+        }
+    } else {
+        for (const auto& [token_id, token] : energy_tokens_) {
+            if (token.owner == sender_addr &&
+                now_seconds > token.created_at + ENERGY_TOKEN_TTL_SECONDS) {
+                moved_amount += token.amount;
+                consumed_ids.push_back(token_id);
+            }
+        }
+    }
+
+    for (const auto& token_id : consumed_ids) {
+        energy_tokens_.erase(token_id);
+    }
+
+    uint64_t battery_balance = balances_[battery_park_address_];
+    if (moved_amount > 0 && battery_balance <= (UINT64_MAX - moved_amount)) {
+        balances_[battery_park_address_] = battery_balance + moved_amount;
+    }
+
+    balances_[sender_addr] = sender_balance - tx.fee;
+    if (total_circulating_supply_ >= tx.fee) {
+        total_circulating_supply_ -= tx.fee;
+    } else {
+        total_circulating_supply_ = 0;
+    }
+    nonces_[sender_addr]++;
+    return true;
+}
+
+void State::process_pending_settlements_locked(uint64_t network_time_seconds) {
+    while (!pending_settlement_.empty()) {
+        const PendingSettlementEntry& entry = pending_settlement_.front();
+        if (network_time_seconds < entry.enqueue_time + PENDING_SETTLEMENT_SECONDS) {
+            break;
+        }
+
+        Transaction tx = entry.tx;
+        pending_settlement_.pop_front();
+        const std::string sender_addr = tx.sender.to_string();
+        auto sender_it = balances_.find(sender_addr);
+        if (sender_it == balances_.end()) {
+            continue;
+        }
+
+        apply_committed_standard_transfer_locked(tx, sender_addr, sender_it->second, true);
+    }
+}
+
+void State::prune_expired_energy_tokens_locked(uint64_t network_time_seconds) {
+    if (network_time_seconds <= ENERGY_TOKEN_TTL_SECONDS) {
+        return;
+    }
+    const uint64_t expiry_cutoff = network_time_seconds - ENERGY_TOKEN_TTL_SECONDS;
+    uint64_t pruned_amount = 0;
+
+    auto it = expiration_index_.begin();
+    while (it != expiration_index_.end() && it->first <= expiry_cutoff) {
+        for (const auto& token_id : it->second) {
+            auto token_it = energy_tokens_.find(token_id);
+            if (token_it != energy_tokens_.end()) {
+                pruned_amount += token_it->second.amount;
+                energy_tokens_.erase(token_it);
+            }
+        }
+        it = expiration_index_.erase(it);
+    }
+
+    if (pruned_amount == 0) {
+        return;
+    }
+
+    uint64_t battery_balance = balances_[battery_park_address_];
+    if (battery_balance <= (UINT64_MAX - pruned_amount)) {
+        balances_[battery_park_address_] = battery_balance + pruned_amount;
+    }
+}
+
+void State::process_pending_settlements(uint64_t network_time_seconds) {
+    std::lock_guard<std::mutex> lock(balances_mutex_);
+    process_pending_settlements_locked(network_time_seconds);
+    save_balances();
+}
+
+void State::prune_expired_energy_tokens(uint64_t network_time_seconds) {
+    std::lock_guard<std::mutex> lock(balances_mutex_);
+    prune_expired_energy_tokens_locked(network_time_seconds);
+    save_balances();
+}
+
+bool State::revoke_transaction(const Bytes& tx_hash) {
+    std::lock_guard<std::mutex> lock(balances_mutex_);
+    const std::string tx_id = chrono_util::bytes_to_hex(tx_hash);
+    auto it = std::find_if(
+        pending_settlement_.begin(), pending_settlement_.end(),
+        [&tx_id](const PendingSettlementEntry& entry) { return entry.tx_id == tx_id; });
+    if (it == pending_settlement_.end()) {
+        return false;
+    }
+    pending_settlement_.erase(it);
     save_balances();
     return true;
+}
+
+void State::set_daily_limit(const std::string& addr, uint64_t limit) {
+    std::lock_guard<std::mutex> lock(balances_mutex_);
+    daily_limits_[addr] = limit;
+    save_balances();
+}
+
+void State::pruning_worker_loop() {
+    std::unique_lock<std::mutex> lock(background_mutex_);
+    while (!stop_background_tasks_) {
+        prune_cv_.wait_for(lock, std::chrono::seconds(5));
+        if (stop_background_tasks_) {
+            break;
+        }
+        const uint64_t now_seconds = current_unix_seconds();
+        std::lock_guard<std::mutex> state_lock(balances_mutex_);
+        process_pending_settlements_locked(now_seconds);
+        prune_expired_energy_tokens_locked(now_seconds);
+        save_balances();
+    }
 }
 
 /**
@@ -520,6 +758,9 @@ bool State::deserialize_from_bytes(const chrono_util::Bytes& data) {
     balances_.clear();
     nonces_.clear();
     validator_keys_.clear();
+    energy_tokens_.clear();
+    expiration_index_.clear();
+    pending_settlement_.clear();
     // node_registry_ cleared inside deserialize_from_bytes if called
     total_circulating_supply_ = 0;
     
@@ -593,4 +834,3 @@ void chrono_ledger::State::update_circulating_supply(int64_t delta) {
         total_circulating_supply_ = (total_circulating_supply_ >= burn) ? total_circulating_supply_ - burn : 0;
     }
 }
-

@@ -54,6 +54,7 @@ public:
     uint32_t round = 0; ///< @var round The BFT round in which this block was proposed/finalized.
     uint32_t time_tier = 5; ///< @var time_tier The Time Tier of the block proposer (1=Quantum, 2=Atomic, ..., 5=NTP).
     uint32_t time_quality_score = 0; ///< @var time_quality_score The Time Quality Score of the proposer (0-100).
+    Bytes layer_1_anchor; ///< @var layer_1_anchor Hash anchor of the latest ChronosBeat (Layer 1).
 
     // Block Body
     std::vector<Transaction> transactions; ///< @var transactions A list of all transactions included in this block.
@@ -80,8 +81,9 @@ public:
      * @param time_tier The Time Tier of the proposer.
      * @param time_quality_score The Time Quality Score of the proposer.
      * @param txs A vector of `Transaction` objects to be included in this block.
+     * @param layer_1_anchor The latest Layer 1 ChronosBeat hash anchor (optional).
      */
-    Block(const Bytes& prev_hash, uint64_t height, uint64_t consensus_time, uint32_t round, uint32_t time_tier, uint32_t time_quality_score, const std::vector<Transaction>& txs);
+    Block(const Bytes& prev_hash, uint64_t height, uint64_t consensus_time, uint32_t round, uint32_t time_tier, uint32_t time_quality_score, const std::vector<Transaction>& txs, const Bytes& layer_1_anchor = {});
 
     /**
      * @brief Calculates the cryptographic hash of the block header.

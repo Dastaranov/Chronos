@@ -13,9 +13,12 @@
 
 #include "test_framework.hpp"
 #include "ledger/state.hpp"
+#include "ledger/block.hpp"
 #include "ledger/transaction.hpp"
 #include "address/address.hpp"
 #include "crypto/signer_hmac.hpp"
+#include "consensus/beacon_engine.hpp"
+#include "hardware/time_oracle.hpp"
 #include "storage/memory_kv.hpp"
 #include "util/bytes.hpp"
 
@@ -96,6 +99,63 @@ void test_state_serialization() {
 }
 
 /**
+ * @brief Tests that transaction security tier defaults and round-trips through serialization.
+ */
+void test_transaction_security_tier_roundtrip() {
+    chrono_crypto::SignerHMAC signer("tx-tier-key");
+    chrono_address::Address from(signer.get_public_key());
+    chrono_address::Address to(signer.get_public_key());
+
+    chrono_ledger::Transaction default_tx(from, to, 1, 1, 0, signer.get_public_key());
+    assert(default_tx.tier == chrono_ledger::SecurityTier::STANDARD_RETAIL);
+
+    chrono_ledger::Transaction tier1_tx(
+        from, to, 2, 1, 1, signer.get_public_key(),
+        chrono_ledger::TransactionType::TRANSFER, {},
+        chrono_ledger::SecurityTier::CRITICAL_SETTLEMENT
+    );
+    tier1_tx.signature = signer.sign(tier1_tx.get_hash_for_signing());
+
+    chrono_ledger::Transaction deserialized = chrono_ledger::Transaction::deserialize(tier1_tx.serialize());
+    assert(deserialized.tier == chrono_ledger::SecurityTier::CRITICAL_SETTLEMENT);
+}
+
+/**
+ * @brief Tests that layer_1_anchor is preserved in block serialization.
+ */
+void test_block_layer1_anchor_roundtrip() {
+    chrono_util::Bytes prev_hash(32, 1);
+    chrono_util::Bytes anchor(32, 9);
+    chrono_ledger::Block block(prev_hash, 1, 1000, 0, 5, 0, {}, anchor);
+
+    chrono_ledger::Block decoded = chrono_ledger::Block::deserialize(block.serialize());
+    assert(decoded.layer_1_anchor == anchor);
+}
+
+namespace {
+class FixedOracle : public chrono_hardware::ITimeOracle {
+public:
+    explicit FixedOracle(uint64_t fixed_ts) : ts_(fixed_ts) {}
+    uint64_t get_hardware_timestamp() override { return ts_; }
+private:
+    uint64_t ts_;
+};
+} // namespace
+
+/**
+ * @brief Tests that BeaconEngine uses the injected time oracle.
+ */
+void test_beacon_engine_uses_injected_time_oracle() {
+    chrono_crypto::SignerHMAC signer("beacon-engine-key");
+    auto oracle = std::make_unique<FixedOracle>(42424242);
+    chrono_consensus::BeaconEngine engine(&signer, std::move(oracle), 1);
+
+    auto beat = engine.maybe_produce(std::chrono::steady_clock::now() + std::chrono::milliseconds(2));
+    assert(beat.has_value());
+    assert(beat->timestamp_ms == 42424242);
+}
+
+/**
  * @struct Registrar
  * @brief Auto-registers test cases.
  */
@@ -103,6 +163,9 @@ struct Registrar {
     Registrar() {
         test_framework::register_test("Nonce Tracking", test_nonce_tracking);
         test_framework::register_test("State Serialization", test_state_serialization);
+        test_framework::register_test("Transaction Security Tier Roundtrip", test_transaction_security_tier_roundtrip);
+        test_framework::register_test("Block Layer1 Anchor Roundtrip", test_block_layer1_anchor_roundtrip);
+        test_framework::register_test("Beacon Engine Uses Injected Oracle", test_beacon_engine_uses_injected_time_oracle);
     }
 };
 

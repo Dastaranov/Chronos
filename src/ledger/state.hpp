@@ -21,6 +21,11 @@
 #include <string>
 #include <cstdint>
 #include <mutex> // For thread-safe access to balances_
+#include <map>
+#include <deque>
+#include <thread>
+#include <atomic>
+#include <condition_variable>
 
 namespace chrono_ledger {
 
@@ -35,6 +40,26 @@ namespace chrono_ledger {
  */
 class State {
 public:
+    using TokenID = std::string;
+
+    /**
+     * @brief Metadata for a time-bound energy token.
+     */
+    struct EnergyTokenMeta {
+        std::string owner;
+        uint64_t amount = 0;
+        uint64_t created_at = 0;
+    };
+
+    /**
+     * @brief Pending settlement entry for delayed retail settlement.
+     */
+    struct PendingSettlementEntry {
+        Transaction tx;
+        uint64_t enqueue_time = 0;
+        std::string tx_id;
+    };
+
     /**
      * @brief Constructs a State object.
      *
@@ -44,6 +69,7 @@ public:
      * @param kv_store A reference to an `IKv` implementation for state persistence.
      */
     explicit State(chrono_storage::IKv& kv_store);
+    ~State();
 
     /**
      * @brief Retrieves the current balance for a given address.
@@ -79,6 +105,36 @@ public:
      * @return `true` if the transaction was successfully applied, `false` otherwise (e.g., insufficient funds, overflow).
      */
     bool apply_transaction(const Transaction& tx);
+
+    /**
+     * @brief Revokes a pending retail transaction before settlement timeout.
+     *
+     * @param tx_hash The transaction hash bytes for the pending transaction.
+     * @return true if revoked, false otherwise.
+     */
+    bool revoke_transaction(const Bytes& tx_hash);
+
+    /**
+     * @brief Processes queued pending settlements whose delay has elapsed.
+     *
+     * @param network_time_seconds Current network time in seconds.
+     */
+    void process_pending_settlements(uint64_t network_time_seconds);
+
+    /**
+     * @brief Triggers explicit energy token pruning using network time.
+     *
+     * @param network_time_seconds Current network time in seconds.
+     */
+    void prune_expired_energy_tokens(uint64_t network_time_seconds);
+
+    /**
+     * @brief Sets a daily transfer limit for an address.
+     *
+     * @param addr Address to configure.
+     * @param limit Daily nanos limit.
+     */
+    void set_daily_limit(const std::string& addr, uint64_t limit);
 
     /**
      * @brief Credits a specified amount to an address.
@@ -197,6 +253,16 @@ public:
     NodeRegistry& get_node_registry_mutable() { return node_registry_; }
 
 private:
+    static uint64_t current_unix_seconds();
+    bool apply_standard_transfer_locked(const Transaction& tx, const std::string& sender_addr, uint64_t sender_balance);
+    bool apply_energy_mint_locked(const Transaction& tx, const std::string& sender_addr, uint64_t sender_balance, uint64_t now_seconds);
+    bool apply_energy_fallback_locked(const Transaction& tx, const std::string& sender_addr, uint64_t sender_balance, uint64_t now_seconds);
+    bool queue_pending_settlement_locked(const Transaction& tx, uint64_t now_seconds);
+    bool enforce_daily_limit_locked(const std::string& sender_addr, uint64_t amount, uint64_t now_seconds);
+    bool apply_committed_standard_transfer_locked(const Transaction& tx, const std::string& sender_addr, uint64_t sender_balance, bool increment_nonce);
+    void process_pending_settlements_locked(uint64_t network_time_seconds);
+    void prune_expired_energy_tokens_locked(uint64_t network_time_seconds);
+    void pruning_worker_loop();
     /**
      * @brief Loads account balances from the underlying key-value store.
      *
@@ -217,12 +283,34 @@ private:
     std::unordered_map<std::string, uint64_t> balances_;
     ///< @var A map storing account nonces, keyed by address string and valued by `uint64_t` nonce count.
     std::unordered_map<std::string, uint64_t> nonces_;
+    ///< @var A map of per-account daily transfer limits.
+    std::unordered_map<std::string, uint64_t> daily_limits_;
+    ///< @var A map of current-day spend per account.
+    std::unordered_map<std::string, uint64_t> spent_today_;
+    ///< @var A map of day index (UTC epoch day) tracked for spent_today_ reset.
+    std::unordered_map<std::string, uint64_t> spent_day_epoch_;
+    ///< @var Active energy tokens keyed by token identifier.
+    std::unordered_map<TokenID, EnergyTokenMeta> energy_tokens_;
+    ///< @var Expiration index for TTL energy token pruning.
+    std::map<uint64_t, std::vector<TokenID>> expiration_index_;
+    ///< @var Pending standard retail settlements (60s delay).
+    std::deque<PendingSettlementEntry> pending_settlement_;
     ///< @var A map storing active public keys for validators, keyed by address string.
     std::unordered_map<std::string, Bytes> validator_keys_;
     ///< @var A reference to the key-value store used for persisting state data.
     chrono_storage::IKv& kv_store_; // Reverted to reference
     ///< @var Mutex to ensure thread-safe access to the `balances_` and `nonces_` maps.
     mutable std::mutex balances_mutex_;
+    ///< @var Coordination mutex for background pruning task.
+    mutable std::mutex background_mutex_;
+    ///< @var Condition variable used to wake pruning worker.
+    std::condition_variable prune_cv_;
+    ///< @var Flag to stop background workers.
+    std::atomic<bool> stop_background_tasks_{false};
+    ///< @var Background pruning thread.
+    std::thread pruning_thread_;
+    ///< @var Default battery park destination for fallback settlement.
+    std::string battery_park_address_ = "cqc13sj2mrcc4faq9arcw63x6t3j9u2uhn4t9echrt";
 
     ///< @var Total circulating supply of tokens in nanos.
     uint64_t total_circulating_supply_ = 0;

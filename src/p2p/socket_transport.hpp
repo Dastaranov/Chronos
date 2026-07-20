@@ -16,6 +16,7 @@
  * - `~SocketTransport()`: Destructor to clean up resources.
  * - `listen(const std::string& addr, int port)`: Starts listening for incoming connections.
  * - `connect(const std::string& host, int port)`: Connects to a remote peer.
+ * - `connect_quic_stub(const std::string& host, int port)`: Draft QUIC connect path (stub).
  * - `publish(const std::string& topic, const Bytes& msg)`: Publishes a message to connected peers.
  * - `on_message(MsgHandler cb)`: Sets the callback for handling incoming messages.
  * - `handle_incoming_connection(int client_socket, const std::string& message)`: Internal handler for messages from new connections.
@@ -95,6 +96,18 @@ public:
     bool connect(const std::string& host, int port) override;
 
     /**
+     * @brief Draft QUIC connect stub for future UDP/QUIC transport migration.
+     *
+     * This path is intentionally a stub and currently logs intent without establishing
+     * a QUIC session. It reserves call sites for future msquic/lsquic integration.
+     *
+     * @param host The target hostname or IP.
+     * @param port The target UDP port.
+     * @return `false` until real QUIC integration is implemented.
+     */
+    bool connect_quic_stub(const std::string& host, int port);
+
+    /**
      * @brief Publishes a message to all connected peers.
      *
      * This method iterates through all active client connections and sends the provided
@@ -161,6 +174,16 @@ private:
      * @param client A pointer to the `P2pClient` instance for this connection.
      */
     void client_receive_loop(const std::string& peer_address, P2pClient* client);
+
+    /**
+     * @brief Draft QUIC datagram handler placeholder.
+     *
+     * @param sender_addr Remote endpoint address.
+     * @param datagram Raw UDP payload bytes.
+     */
+    void handle_quic_datagram_stub(const std::string& sender_addr, const Bytes& datagram);
+
+    bool quic_stub_enabled_ = true; ///< @var Enables draft QUIC stub logging path.
 };
 
 } // namespace chrono_p2p

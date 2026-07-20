@@ -146,6 +146,7 @@ Key settings in `config/default.toml`:
 | Setting | Default | Description |
 |---------|---------|-------------|
 | `[node] node_type` | `full` | `full` (LevelDB) or `light` (memory) |
+| `[node] is_beacon_node` | `false` | `true` runs Layer 1 ChronosBeat-only beacon mode |
 | `[consensus] slot_ms` | `500` | Block interval in ms (~2 blocks/sec) |
 | `[consensus] bft_round_timeout_ms` | `5000` | Round failure timeout |
 | `[consensus] validators` | `[]` | Validator public keys (hex Dilithium) |
