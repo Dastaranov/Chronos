@@ -75,6 +75,7 @@ Config Config::load(const std::string& file_path) {
                 cfg.node_type = NodeType::FULL;
             }
         }
+        cfg.is_beacon_node = (*node_tbl)["is_beacon_node"].value_or(cfg.is_beacon_node);
     }
 
     // --- Network settings ---

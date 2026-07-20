@@ -53,8 +53,9 @@ Transaction::Transaction(const chrono_address::Address& sender,
                          uint64_t nonce,
                          const Bytes& public_key,
                          TransactionType type,
-                         const Bytes& payload)
-    : sender(sender), recipient(recipient), amount(amount), fee(fee), nonce(nonce), public_key(public_key), type(type), payload(payload) {
+                         const Bytes& payload,
+                         SecurityTier tier)
+    : sender(sender), recipient(recipient), amount(amount), fee(fee), public_key(public_key), payload(payload), nonce(nonce), tier(tier), type(type) {
     if (!sender.is_valid() || !recipient.is_valid()) {
         throw std::invalid_argument("Sender or recipient address is invalid.");
     }
@@ -77,6 +78,7 @@ Transaction::Transaction(const chrono_address::Address& sender,
  * - amount (uint64_t LE)
  * - fee (uint64_t LE)
  * - payload (variable)
+ * - tier (1 byte)
  * - nonce (uint64_t LE)
  *
  * @return A `Bytes` object containing the 32-byte BLAKE3 hash of the transaction data.
@@ -109,6 +111,9 @@ Bytes Transaction::get_hash_for_signing() const {
     // Add payload (raw bytes)
     data_to_hash.insert(data_to_hash.end(), payload.begin(), payload.end());
 
+    // Add security tier (1 byte)
+    data_to_hash.push_back(static_cast<uint8_t>(tier));
+
     // Add nonce (uint64_t LE)
     chrono_util::write_fixed_uint64_le(nonce, data_to_hash);
 
@@ -136,6 +141,7 @@ Bytes Transaction::get_hash() const {
  * - payload_bytes (variable)
  * - signature_length (uint32_t LE)
  * - signature_bytes (variable)
+ * - tier (1 byte)
  * - nonce (uint64_t LE)
  *
  * @return A `Bytes` object containing the serialized representation of the transaction.
@@ -172,6 +178,9 @@ Bytes Transaction::serialize() const {
     chrono_util::write_fixed_uint32_le(static_cast<uint32_t>(signature.size()), serialized_data);
     serialized_data.insert(serialized_data.end(), signature.begin(), signature.end());
 
+    // Add security tier (1 byte)
+    serialized_data.push_back(static_cast<uint8_t>(tier));
+
     // Add nonce (uint64_t LE)
     chrono_util::write_fixed_uint64_le(nonce, serialized_data);
 
@@ -194,6 +203,7 @@ Bytes Transaction::serialize() const {
  * - payload_bytes (variable)
  * - signature_length (uint32_t LE)
  * - signature_bytes (variable)
+ * - tier (1 byte, optional for backward compatibility)
  * - nonce (uint64_t LE)
  *
  * @param data A `Bytes` object containing the serialized transaction data.
@@ -203,8 +213,8 @@ Bytes Transaction::serialize() const {
 Transaction Transaction::deserialize(const Bytes& data) {
     size_t offset = 0;
 
-    // Minimum size check: 1 (type) + 20 (sender) + 20 (recipient) + 8 (amount) + 8 (fee) + 4 (payload_len) + 4 (sig_len) + 8 (nonce)
-    const size_t MIN_TX_SIZE = 1 + 20 + 20 + 8 + 8 + 4 + 4 + 8;
+    // Minimum size check: 1 (type) + 20 (sender) + 20 (recipient) + 8 (amount) + 8 (fee) + 4 (pubkey_len) + 4 (payload_len) + 4 (sig_len) + 8 (nonce)
+    const size_t MIN_TX_SIZE = 1 + 20 + 20 + 8 + 8 + 4 + 4 + 4 + 8;
     if (data.size() < MIN_TX_SIZE) {
         throw std::runtime_error("Transaction data too short for deserialization.");
     }
@@ -255,11 +265,22 @@ Transaction Transaction::deserialize(const Bytes& data) {
     Bytes signature_val(data.begin() + offset, data.begin() + offset + sig_size);
     offset += sig_size;
 
+    // Read optional security tier (backward-compatible decoding)
+    SecurityTier tier_val = SecurityTier::STANDARD_RETAIL;
+    if (offset + 9 == data.size()) {
+        uint8_t raw_tier = data[offset++];
+        if (raw_tier == static_cast<uint8_t>(SecurityTier::CRITICAL_SETTLEMENT)) {
+            tier_val = SecurityTier::CRITICAL_SETTLEMENT;
+        }
+    } else if (offset + 8 != data.size()) {
+        throw std::runtime_error("Transaction has malformed trailing bytes.");
+    }
+
     // Read nonce (uint64_t LE)
     uint64_t nonce_val = chrono_util::read_fixed_uint64_le(data, offset);
 
     // Create and populate transaction
-    Transaction tx(sender_addr, recipient_addr, amount_val, fee_val, nonce_val, public_key_val, type, payload_val);
+    Transaction tx(sender_addr, recipient_addr, amount_val, fee_val, nonce_val, public_key_val, type, payload_val, tier_val);
     tx.signature = signature_val;
     return tx;
 }
@@ -297,6 +318,7 @@ nlohmann::json Transaction::to_json() const {
     j["payload"] = chrono_util::bytes_to_hex(payload);
     j["signature"] = chrono_util::bytes_to_hex(signature);
     j["nonce"] = nonce;
+    j["tier"] = static_cast<uint8_t>(tier);
     return j;
 }
 
@@ -327,6 +349,7 @@ void Transaction::from_json(const nlohmann::json& j) {
     }
     signature = chrono_util::hex_to_bytes(j.at("signature").get<std::string>());
     nonce = j.at("nonce").get<uint64_t>();
+    tier = static_cast<SecurityTier>(j.value("tier", static_cast<uint8_t>(SecurityTier::STANDARD_RETAIL)));
 }
 
 /**
@@ -340,7 +363,10 @@ void Transaction::from_json(const nlohmann::json& j) {
  * @return `true` if the transaction passes all internal validation checks, `false` otherwise.
  */
 bool Transaction::is_valid() const {
-    return sender.is_valid() && recipient.is_valid() && (amount > 0 || fee > 0) && (amount + fee >= amount);
+    const uint8_t raw_tier = static_cast<uint8_t>(tier);
+    const bool tier_valid = (raw_tier == static_cast<uint8_t>(SecurityTier::STANDARD_RETAIL) ||
+                             raw_tier == static_cast<uint8_t>(SecurityTier::CRITICAL_SETTLEMENT));
+    return sender.is_valid() && recipient.is_valid() && (amount > 0 || fee > 0) && (amount + fee >= amount) && tier_valid;
 }
 
 } // namespace chrono_ledger

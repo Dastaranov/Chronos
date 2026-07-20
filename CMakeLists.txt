@@ -127,6 +127,7 @@ set(CHRONOS_LIB_SRC
     src/ledger/node_registry.cpp
     src/consensus/pot_aggregator.cpp
     src/consensus/bft.cpp
+    src/consensus/beacon_engine.cpp
     src/consensus/external_time_source_manager.cpp
     src/consensus/ntp_client.cpp
     src/consensus/ChronyBackend.cpp

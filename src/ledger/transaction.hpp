@@ -47,6 +47,15 @@ enum class TransactionType : uint8_t {
 };
 
 /**
+ * @enum SecurityTier
+ * @brief Defines the security tier used for transaction routing.
+ */
+enum class SecurityTier : uint8_t {
+    STANDARD_RETAIL = 0,      ///< Standard Layer 2 retail transaction.
+    CRITICAL_SETTLEMENT = 1   ///< Critical Layer 1 settlement transaction.
+};
+
+/**
  * @class Transaction
  * @brief Represents a single transaction in the Chronos blockchain.
  *
@@ -66,6 +75,7 @@ public:
     Bytes payload; ///< @var payload Arbitrary data associated with the transaction (e.g., new key).
     Bytes signature; ///< @var signature The cryptographic signature of the sender, proving authorization.
     uint64_t nonce; ///< @var nonce A unique number used to prevent replay attacks and order transactions from the same sender.
+    SecurityTier tier = SecurityTier::STANDARD_RETAIL; ///< @var tier Security tier used for asymmetric dual-layer routing.
 
     /**
      * @brief Default constructor for the Transaction class.
@@ -88,6 +98,7 @@ public:
      * @param nonce The transaction nonce.
      * @param type The transaction type (default: TRANSFER).
      * @param payload Arbitrary payload data (default: empty).
+     * @param tier Security tier (default: STANDARD_RETAIL).
      */
     Transaction(const chrono_address::Address& sender,
                 const chrono_address::Address& recipient,
@@ -96,7 +107,8 @@ public:
                 uint64_t nonce,
                 const Bytes& public_key,
                 TransactionType type = TransactionType::TRANSFER,
-                const Bytes& payload = {});
+                const Bytes& payload = {},
+                SecurityTier tier = SecurityTier::STANDARD_RETAIL);
 
     /**
      * @brief Returns the hash of the full transaction (including signature).
