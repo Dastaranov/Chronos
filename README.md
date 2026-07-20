@@ -1,5 +1,9 @@
 # Chronos Blockchain Node
 
+[![Build and Test](https://github.com/Dastaranov/Chronos/actions/workflows/build-and-test.yml/badge.svg)](https://github.com/Dastaranov/Chronos/actions/workflows/build-and-test.yml)
+[![Memory Check](https://github.com/Dastaranov/Chronos/actions/workflows/memory-check.yml/badge.svg)](https://github.com/Dastaranov/Chronos/actions/workflows/memory-check.yml)
+[![CodeQL Analysis](https://github.com/Dastaranov/Chronos/actions/workflows/codeql-analysis.yml/badge.svg)](https://github.com/Dastaranov/Chronos/actions/workflows/codeql-analysis.yml)
+
 A C++20 blockchain node with Byzantine Fault Tolerant (BFT) consensus, Proof-of-Time (PoT) aggregation, and post-quantum cryptography (CRYSTALS-Dilithium via liboqs).
 
 ## Features

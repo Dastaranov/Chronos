@@ -1,0 +1,43 @@
+name: Memory Check
+
+on:
+  push:
+    branches: [main]
+
+jobs:
+  valgrind:
+    name: Valgrind Memory Check
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Install dependencies
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y \
+            cmake \
+            build-essential \
+            libprotobuf-dev \
+            protobuf-compiler \
+            libssl-dev \
+            zlib1g-dev \
+            valgrind
+
+      - name: Configure CMake (Debug)
+        run: |
+          cmake -B build \
+            -DCMAKE_BUILD_TYPE=Debug \
+            -DCHRONOS_USE_OQS=OFF \
+            -DPROTOBUF_LOCAL_ROOT=""
+
+      - name: Build
+        run: cmake --build build --parallel $(nproc) --target dummy_tests
+
+      - name: Run Valgrind
+        run: |
+          valgrind \
+            --leak-check=full \
+            --error-exitcode=1 \
+            ./build/dummy_tests
