@@ -497,6 +497,14 @@ bool Block::is_valid() const {
         return false;
     }
 
+    // Check optional Layer 1 anchor size (must be empty or 32 bytes)
+    if (!layer_1_anchor.empty() && layer_1_anchor.size() != 32) {
+        LOG_WARN(chrono_util::LogCategory::LEDGER,
+                 "Block validation failed: invalid layer_1_anchor size {} (expected 0 or 32)",
+                 layer_1_anchor.size());
+        return false;
+    }
+
     // Check time_tier validity. Tier 5 (unauthenticated NTP) is the minimum accepted level.
     // Production validators should use tier 4 (NTS) or better, but we allow tier 5 for
     // testnet/development nodes that lack NTS infrastructure.
@@ -549,9 +557,3 @@ bool Block::is_valid() const {
 }
 
 } // namespace chrono_ledger
-    if (!layer_1_anchor.empty() && layer_1_anchor.size() != 32) {
-        LOG_WARN(chrono_util::LogCategory::LEDGER,
-                 "Block validation failed: invalid layer_1_anchor size {} (expected 0 or 32)",
-                 layer_1_anchor.size());
-        return false;
-    }
