@@ -545,13 +545,15 @@ bool Block::is_valid() const {
         }
     }
 
-    return true;
-}
-
-} // namespace chrono_ledger
+    // Check layer_1_anchor size (must be empty or 32 bytes)
     if (!layer_1_anchor.empty() && layer_1_anchor.size() != 32) {
         LOG_WARN(chrono_util::LogCategory::LEDGER,
                  "Block validation failed: invalid layer_1_anchor size {} (expected 0 or 32)",
                  layer_1_anchor.size());
         return false;
     }
+
+    return true;
+}
+
+} // namespace chrono_ledger
