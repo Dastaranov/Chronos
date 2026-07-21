@@ -195,7 +195,7 @@ bool State::apply_transaction(const Transaction& tx) {
 
     switch (tx.type) {
         case TransactionType::STANDARD:
-            if (!queue_pending_settlement_locked(tx, now_seconds)) {
+            if (!apply_standard_transfer_locked(tx, sender_addr, sender_balance)) {
                 return false;
             }
             break;
