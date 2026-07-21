@@ -75,6 +75,8 @@ struct Config {
     // Note: time_weights is complex (map of string to double), will handle in config.cpp if needed.
     double outlier_mad_factor = 6.0; ///< @var outlier_mad_factor MAD factor for outlier detection in PoT.
     double min_threshold_ms = 5.0; ///< @var min_threshold_ms Minimum threshold for PoT timestamps in milliseconds.
+    uint64_t pot_epsilon_ms = 1000; ///< @var pot_epsilon_ms Maximum local clock uncertainty epsilon used in PoT timestamp validation.
+    uint64_t pot_delta_min_ms = 1; ///< @var pot_delta_min_ms Minimum network latency delta_min used in PoT timestamp validation.
     uint64_t min_stake_nanos = 1000000; ///< @var min_stake_nanos Minimum stake to be a validator.
 
     // External Time Source settings

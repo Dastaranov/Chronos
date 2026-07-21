@@ -111,6 +111,23 @@ public:
      */
     bool verify_measurement(const TimeMeasurement& tm) const;
 
+    /**
+     * @brief Validates proposer timestamp using the PoT proof inequality.
+     *
+     * A proposed block timestamp T_p is considered valid if:
+     * T_p <= T_v + 2*epsilon - delta_min
+     *
+     * @param proposer_timestamp_ms Proposed block timestamp (T_p) in milliseconds.
+     * @param local_consensus_time_ms Local validator consensus time (T_v) in milliseconds.
+     * @param epsilon_ms Maximum clock uncertainty epsilon in milliseconds.
+     * @param delta_min_ms Minimum network delay delta_min in milliseconds.
+     * @return True if the proposer timestamp satisfies the inequality, false otherwise.
+     */
+    static bool validate_timestamp(uint64_t proposer_timestamp_ms,
+                                   uint64_t local_consensus_time_ms,
+                                   uint64_t epsilon_ms,
+                                   uint64_t delta_min_ms);
+
 private:
     double mad_factor_; ///< @var mad_factor_ The Median Absolute Deviation factor used for outlier detection.
     double min_thr_ms_; ///< @var min_thr_ms_ The minimum threshold in milliseconds.

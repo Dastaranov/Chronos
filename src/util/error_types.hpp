@@ -332,10 +332,11 @@ std::shared_ptr<ErrorContext> make_error_context(
     const std::string& source_file = "",
     int source_line = 0);
 
-// Explicit template specialization declarations for common types
-template class Result<bool>;
-template class Result<int>;
-template class Result<std::string>;
-template class Result<uint64_t>;
+// Explicit template instantiation declarations for common types.
+// Definitions are provided in error_types.cpp after specializations.
+extern template class Result<bool>;
+extern template class Result<int>;
+extern template class Result<std::string>;
+extern template class Result<uint64_t>;
 
 } // namespace chrono_error

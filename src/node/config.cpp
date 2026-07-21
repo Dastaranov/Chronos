@@ -118,6 +118,8 @@ Config Config::load(const std::string& file_path) {
         }
     }
 
+    bool has_explicit_pot_epsilon = false;
+
     // --- Consensus settings ---
     if (auto consensus_tbl = tbl["consensus"].as_table()) {
         cfg.bft_round_timeout_ms = (*consensus_tbl)["bft_round_timeout_ms"].value_or(cfg.bft_round_timeout_ms);
@@ -125,6 +127,9 @@ Config Config::load(const std::string& file_path) {
         cfg.bft_quorum = (*consensus_tbl)["bft_quorum"].value_or(cfg.bft_quorum);
         cfg.outlier_mad_factor = (*consensus_tbl)["outlier_mad_factor"].value_or(cfg.outlier_mad_factor);
         cfg.min_threshold_ms = (*consensus_tbl)["min_threshold_ms"].value_or(cfg.min_threshold_ms);
+        has_explicit_pot_epsilon = consensus_tbl->contains("pot_epsilon_ms");
+        cfg.pot_epsilon_ms = (*consensus_tbl)["pot_epsilon_ms"].value_or(cfg.pot_epsilon_ms);
+        cfg.pot_delta_min_ms = (*consensus_tbl)["pot_delta_min_ms"].value_or(cfg.pot_delta_min_ms);
         if (consensus_tbl->contains("min_stake_nanos")) {
             cfg.min_stake_nanos = (*consensus_tbl)["min_stake_nanos"].value_or(1000000ULL);
         }
@@ -154,6 +159,15 @@ Config Config::load(const std::string& file_path) {
         cfg.time_backend = (*ets_tbl)["backend"].value_or(cfg.time_backend);
         cfg.atomic_clock_device = (*ets_tbl)["atomic_clock_device"].value_or(cfg.atomic_clock_device);
         cfg.quantum_clock_device = (*ets_tbl)["quantum_clock_device"].value_or(cfg.quantum_clock_device);
+    }
+
+    // --- Secure Time settings ---
+    if (auto secure_time_tbl = tbl["secure_time"].as_table()) {
+        // Use secure_time.max_skew_ms as default epsilon unless explicitly overridden in [consensus].
+        // This keeps the PoT inequality parameter aligned with secure clock uncertainty settings.
+        if (!has_explicit_pot_epsilon) {
+            cfg.pot_epsilon_ms = (*secure_time_tbl)["max_skew_ms"].value_or(cfg.pot_epsilon_ms);
+        }
     }
 
     // --- Crypto settings ---
@@ -242,6 +256,10 @@ void Config::validate_consensus_config() const {
         if (val.size() < 10) {  // Minimum reasonable pubkey size (Base58Check is usually longer)
             throw std::invalid_argument("Invalid validator public key (too short): " + val);
         }
+    }
+
+    if (pot_delta_min_ms == 0) {
+        throw std::invalid_argument("consensus.pot_delta_min_ms must be > 0");
     }
 }
 

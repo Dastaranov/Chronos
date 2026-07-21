@@ -255,4 +255,10 @@ std::string Result<uint64_t>::recovery_hint() const {
     return context_->recovery_hint;
 }
 
+// Explicit template instantiation definitions for common Result<T> types.
+template class Result<bool>;
+template class Result<int>;
+template class Result<std::string>;
+template class Result<uint64_t>;
+
 } // namespace chrono_error

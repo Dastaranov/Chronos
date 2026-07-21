@@ -101,6 +101,15 @@ outlier_mad_factor = 6.0
 # mechanism will attempt to correct.
 min_threshold_ms = 5.0
 
+# pot_epsilon_ms: epsilon in the PoT proof inequality.
+# Represents maximum local clock uncertainty (drift/error bound).
+# If omitted, secure_time.max_skew_ms is used as fallback.
+pot_epsilon_ms = 1000
+
+# pot_delta_min_ms: delta_min in the PoT proof inequality.
+# Represents minimum expected network propagation latency.
+pot_delta_min_ms = 1
+
 # min_stake_nanos: Minimum stake required to be a validator.
 min_stake_nanos = 1000000
 

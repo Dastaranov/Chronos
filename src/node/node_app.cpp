@@ -747,7 +747,7 @@ void NodeApp::stop() {
  * @brief Validates and adds a block to the blockchain.
  *
  * This function performs critical validation before adding a block to the chain:
- * 1.  It checks if the block's consensus time is within an acceptable tolerance of the local node's time.
+ * 1.  It validates the block timestamp against the PoT proof inequality.
  * 2.  It submits the block to the BFT gadget for finalization.
  *
  * If the block is valid and finalized, its transactions are applied to the state, the block is
@@ -771,21 +771,36 @@ bool NodeApp::add_block(const Block& b) {
         return false;
     }
 
-    // PoT Consensus Time Validation
-    // Skip for genesis block (height 0) as we might not have measurements yet
+    // PoT Consensus Time Validation (proof-based)
+    // Skip for genesis block (height 0).
+    // For all other heights, require proof inequality:
+    // T_p <= T_v + 2*epsilon - delta_min
     if (b.height > 0) {
         try {
             uint64_t current_local_consensus_time = pot_.get_consensus_time();
-            const uint64_t CONSENSUS_TIME_TOLERANCE_MS = 10000; 
-
-            if (std::abs(static_cast<int64_t>(b.consensus_time) - static_cast<int64_t>(current_local_consensus_time)) > CONSENSUS_TIME_TOLERANCE_MS) {
-                LOG_WARN(chrono_util::LogCategory::CONSENSUS, "Block {} has consensus_time {} which is outside acceptable tolerance of local consensus_time {}. Rejecting block.",
-                         bytes_to_hex(b.get_header_hash()), b.consensus_time, current_local_consensus_time);
+            if (!chrono_consensus::PoTAggregator::validate_timestamp(
+                    b.consensus_time,
+                    current_local_consensus_time,
+                    cfg_.pot_epsilon_ms,
+                    cfg_.pot_delta_min_ms)) {
+                const int64_t rhs = static_cast<int64_t>(current_local_consensus_time)
+                                  + (2 * static_cast<int64_t>(cfg_.pot_epsilon_ms))
+                                  - static_cast<int64_t>(cfg_.pot_delta_min_ms);
+                LOG_WARN(chrono_util::LogCategory::CONSENSUS,
+                         "Rejecting block {}: consensus_time {} violates PoT bound T_p <= T_v + 2*epsilon - delta_min (rhs={}, T_v={}, epsilon_ms={}, delta_min_ms={}).",
+                         bytes_to_hex(b.get_header_hash()),
+                         b.consensus_time,
+                         rhs,
+                         current_local_consensus_time,
+                         cfg_.pot_epsilon_ms,
+                         cfg_.pot_delta_min_ms);
                 return false;
             }
         } catch (const std::exception& e) {
-            LOG_WARN(chrono_util::LogCategory::CONSENSUS, "Could not validate block time (no local measurements): {}", e.what());
-            // Allow to proceed if we can't validate time yet (e.g. early network)
+            LOG_WARN(chrono_util::LogCategory::CONSENSUS,
+                     "Rejecting block {}: cannot evaluate PoT timestamp inequality without local consensus time ({})",
+                     bytes_to_hex(b.get_header_hash()), e.what());
+            return false;
         }
     }
 

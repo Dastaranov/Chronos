@@ -27,6 +27,7 @@
 #include <cassert>
 #include <vector>
 #include <string>
+#include <chrono>
 
 #include "storage/memory_kv.hpp"
 
@@ -74,13 +75,27 @@ void test_ledger_logic() {
         ASSERT_TRUE(state.apply_transaction(t), "Transaction application should succeed");
     }
 
-    // Check final balances using assertions
-    uint64_t addr1_balance = state.get_balance(addr1.to_string()); ///< @var addr1_balance Final balance of addr1.
-    uint64_t addr2_balance = state.get_balance(addr2.to_string()); ///< @var addr2_balance Final balance of addr2.
+    // STANDARD transfers are queued and settled later, so balances are unchanged immediately.
+    uint64_t addr1_balance = state.get_balance(addr1.to_string());
+    uint64_t addr2_balance = state.get_balance(addr2.to_string());
     LOG_INFO(chrono_util::LogCategory::GENERAL, "addr1 balance: {}", addr1_balance);
     LOG_INFO(chrono_util::LogCategory::GENERAL, "addr2 balance: {}", addr2_balance);
-    ASSERT_EQ(addr1_balance, 890, "addr1 balance should be 890 (1000 - 100 - 10)");
-    ASSERT_EQ(addr2_balance, 100, "addr2 balance should be 100");
+    ASSERT_EQ(1000, addr1_balance, "addr1 balance should remain 1000 before settlement");
+    ASSERT_EQ(0, addr2_balance, "addr2 balance should remain 0 before settlement");
+
+    // Advance settlement time beyond the pending delay and apply queued transfer.
+    const uint64_t settle_time = static_cast<uint64_t>(
+        std::chrono::duration_cast<std::chrono::seconds>(
+            std::chrono::system_clock::now().time_since_epoch()
+        ).count()
+    ) + 61;
+    state.process_pending_settlements(settle_time);
+
+    // Check balances after settlement.
+    addr1_balance = state.get_balance(addr1.to_string());
+    addr2_balance = state.get_balance(addr2.to_string());
+    ASSERT_EQ(890, addr1_balance, "addr1 balance should be 890 (1000 - 100 - 10)");
+    ASSERT_EQ(100, addr2_balance, "addr2 balance should be 100");
 }
 
 /**

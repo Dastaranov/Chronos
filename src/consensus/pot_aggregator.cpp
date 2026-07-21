@@ -83,6 +83,24 @@ bool PoTAggregator::verify_measurement(const TimeMeasurement& tm) const {
     return true;
 }
 
+bool PoTAggregator::validate_timestamp(uint64_t proposer_timestamp_ms,
+                                       uint64_t local_consensus_time_ms,
+                                       uint64_t epsilon_ms,
+                                       uint64_t delta_min_ms) {
+    // Compute rhs = T_v + 2*epsilon - delta_min using signed arithmetic
+    // to avoid underflow when delta_min is larger than T_v + 2*epsilon.
+    const int64_t local_time = static_cast<int64_t>(local_consensus_time_ms);
+    const int64_t epsilon = static_cast<int64_t>(epsilon_ms);
+    const int64_t delta_min = static_cast<int64_t>(delta_min_ms);
+    const int64_t rhs = local_time + (2 * epsilon) - delta_min;
+
+    if (rhs < 0) {
+        return false;
+    }
+
+    return static_cast<int64_t>(proposer_timestamp_ms) <= rhs;
+}
+
 void PoTAggregator::add_timestamp(const TimeMeasurement& tm) {
     // Basic validation: ignore timestamps that are too old or have very low confidence
     if (tm.timestamp < min_thr_ms_) { // Assuming min_thr_ms_ can also serve as a minimum valid time

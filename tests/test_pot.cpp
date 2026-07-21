@@ -62,6 +62,48 @@ void test_pot_logic() {
 }
 
 /**
+ * @brief Tests the PoT proof inequality validator for a passing case.
+ */
+void test_pot_timestamp_inequality_accepts_valid_timestamp() {
+    // T_p <= T_v + 2*epsilon - delta_min
+    const uint64_t t_v = 1000;
+    const uint64_t epsilon = 10;
+    const uint64_t delta_min = 5;
+    const uint64_t rhs = t_v + (2 * epsilon) - delta_min; // 1015
+
+    ASSERT_TRUE(
+        chrono_consensus::PoTAggregator::validate_timestamp(rhs, t_v, epsilon, delta_min),
+        "Timestamp equal to PoT bound should be accepted.");
+}
+
+/**
+ * @brief Tests the PoT proof inequality validator for a failing case.
+ */
+void test_pot_timestamp_inequality_rejects_future_timestamp() {
+    const uint64_t t_v = 1000;
+    const uint64_t epsilon = 10;
+    const uint64_t delta_min = 5;
+    const uint64_t rhs = t_v + (2 * epsilon) - delta_min; // 1015
+
+    ASSERT_FALSE(
+        chrono_consensus::PoTAggregator::validate_timestamp(rhs + 1, t_v, epsilon, delta_min),
+        "Timestamp above PoT bound should be rejected.");
+}
+
+/**
+ * @brief Tests PoT validator behavior when RHS would become negative.
+ */
+void test_pot_timestamp_inequality_negative_rhs_rejects() {
+    ASSERT_FALSE(
+        chrono_consensus::PoTAggregator::validate_timestamp(
+            0,
+            1,
+            0,
+            10),
+        "If T_v + 2*epsilon - delta_min is negative, validation must reject.");
+}
+
+/**
  * @struct Registrar
  * @brief A helper struct to automatically register test cases with the test framework.
  *
@@ -71,6 +113,9 @@ void test_pot_logic() {
 struct Registrar {
     Registrar() {
         test_framework::register_test("PoT Logic", test_pot_logic);
+        test_framework::register_test("PoT Timestamp Inequality Accept", test_pot_timestamp_inequality_accepts_valid_timestamp);
+        test_framework::register_test("PoT Timestamp Inequality Reject", test_pot_timestamp_inequality_rejects_future_timestamp);
+        test_framework::register_test("PoT Timestamp Inequality Negative RHS", test_pot_timestamp_inequality_negative_rhs_rejects);
     }
 };
 
