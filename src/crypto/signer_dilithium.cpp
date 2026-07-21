@@ -26,6 +26,8 @@
 
 namespace chrono_crypto {
 
+#ifdef CHRONOS_USE_OQS
+
 bool SignerMLDSA::generate_key_pair(Bytes& public_key, Bytes& private_key) {
     OQS_SIG* sig = OQS_SIG_new(OQS_SIG_alg_ml_dsa_65);
     if (sig == nullptr) {
@@ -117,14 +119,17 @@ SignerMLDSA::SignerMLDSA(const Bytes& private_key_bytes) {
  * is not left in memory.
  */
 SignerMLDSA::~SignerMLDSA() {
-    if (sig) {
-        OQS_SIG_free(sig);
-    }
     // Securely clear and delete the private key
     if (private_key_) {
-        OQS_MEM_cleanse(private_key_, sig->length_secret_key);
+        const size_t secret_key_length = sig ? sig->length_secret_key : 0;
+        if (secret_key_length > 0) {
+            OQS_MEM_cleanse(private_key_, secret_key_length);
+        }
         delete[] private_key_;
         private_key_ = nullptr; // Prevent double free
+    }
+    if (sig) {
+        OQS_SIG_free(sig);
     }
 }
 
@@ -207,5 +212,49 @@ std::string SignerMLDSA::get_address() const {
 Bytes SignerMLDSA::sign_message(const Bytes& message_bytes) const {
     return sign(message_bytes);
 }
+
+#else
+
+bool SignerMLDSA::generate_key_pair(Bytes&, Bytes&) {
+    LOG_ERROR(chrono_util::LogCategory::CRYPTO, "ML-DSA key generation requested but CHRONOS_USE_OQS is disabled");
+    return false;
+}
+
+SignerMLDSA::SignerMLDSA() {
+    throw std::runtime_error("SignerMLDSA requires CHRONOS_USE_OQS=ON");
+}
+
+SignerMLDSA::SignerMLDSA(const Bytes&, const Bytes&) {
+    throw std::runtime_error("SignerMLDSA requires CHRONOS_USE_OQS=ON");
+}
+
+SignerMLDSA::SignerMLDSA(const Bytes&) {
+    throw std::runtime_error("SignerMLDSA requires CHRONOS_USE_OQS=ON");
+}
+
+SignerMLDSA::~SignerMLDSA() = default;
+
+Bytes SignerMLDSA::get_public_key() const {
+    return {};
+}
+
+Bytes SignerMLDSA::sign(const Bytes&) const {
+    throw std::runtime_error("ML-DSA signing requested but CHRONOS_USE_OQS is disabled");
+}
+
+bool SignerMLDSA::verify_static(const Bytes&, const Bytes&, const Bytes&) {
+    LOG_WARN(chrono_util::LogCategory::CRYPTO, "ML-DSA verify requested but CHRONOS_USE_OQS is disabled");
+    return false;
+}
+
+std::string SignerMLDSA::get_address() const {
+    return {};
+}
+
+Bytes SignerMLDSA::sign_message(const Bytes& message_bytes) const {
+    return sign(message_bytes);
+}
+
+#endif
 
 } // namespace chrono_crypto

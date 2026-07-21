@@ -26,7 +26,9 @@
 #include "util/bytes.hpp"
 using chrono_util::Bytes;
 
+#ifdef CHRONOS_USE_OQS
 #include <oqs/oqs.h>
+#endif
 
 namespace chrono_crypto {
 

@@ -21,9 +21,30 @@
 #include <algorithm>
 #include <stdexcept>
 #include <cstring>
+#include <openssl/rand.h>
+#ifdef CHRONOS_USE_OQS
 #include <oqs/oqs.h>
+#endif
 
 namespace chrono_crypto {
+
+/**
+ * @brief Fills a byte buffer with cryptographically secure random bytes.
+ *
+ * Uses liboqs RNG when OQS is enabled, otherwise falls back to OpenSSL RAND_bytes.
+ *
+ * @param buffer Destination buffer to fill.
+ * @param length Number of bytes to generate.
+ * @return true on success, false on RNG failure.
+ */
+static bool fill_secure_random(uint8_t* buffer, size_t length) {
+#ifdef CHRONOS_USE_OQS
+    OQS_randombytes(buffer, length);
+    return true;
+#else
+    return RAND_bytes(buffer, static_cast<int>(length)) == 1;
+#endif
+}
 
 // Base58Check alphabet (excludes 0, O, I, l to avoid confusion)
 const std::string BASE58_ALPHABET = "123456789ABCDEFGHJKLMNPQRSTUVWXYZabcdefghijkmnopqrstuvwxyz";
@@ -313,7 +334,10 @@ bool KeyManager::save_private_key(const std::string& key_id, const chrono_util::
 
             // Generate Salt
             chrono_util::Bytes salt(32);
-            OQS_randombytes(salt.data(), 32);
+            if (!fill_secure_random(salt.data(), salt.size())) {
+                LOG_ERROR(chrono_util::LogCategory::CRYPTO, "Failed to generate random salt for key: {}", key_id);
+                return false;
+            }
             file.write(reinterpret_cast<const char*>(salt.data()), 32);
 
             // Derive Key
@@ -321,7 +345,10 @@ bool KeyManager::save_private_key(const std::string& key_id, const chrono_util::
 
             // Generate IV
             chrono_util::Bytes iv(AESCrypto::IV_SIZE);
-            OQS_randombytes(iv.data(), AESCrypto::IV_SIZE);
+            if (!fill_secure_random(iv.data(), iv.size())) {
+                LOG_ERROR(chrono_util::LogCategory::CRYPTO, "Failed to generate random IV for key: {}", key_id);
+                return false;
+            }
             file.write(reinterpret_cast<const char*>(iv.data()), AESCrypto::IV_SIZE);
 
             // Encrypt
