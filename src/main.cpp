@@ -16,9 +16,8 @@ int main(int argc, char** argv) {
         }
     }
 
-    chrono_util::setup_logging(false);
-
     try {
+        chrono_util::setup_logging(false);
         LOG_INFO(chrono_util::LogCategory::GENERAL, "Chronos node starting with config {}", config_path);
 
         // System-wide lock to prevent multiple instances on the same machine
