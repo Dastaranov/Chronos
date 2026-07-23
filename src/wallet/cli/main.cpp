@@ -11,6 +11,7 @@
 #include "crypto/key_manager.hpp"
 #include "util/bytes.hpp"
 #include "util/log.hpp"
+#include "util/logging_config.hpp"
 #include "address/address.hpp"
 #include "ledger/transaction.hpp"
 
@@ -99,7 +100,7 @@ json rpc_call(const std::string& method, const json& params) {
 
 int main(int argc, char* argv[]) {
     // Initialize logging
-    LOG_INIT(".");
+    chrono_util::setup_logging(false);
     
     // Determine key storage directory (default: ~/.chronos/keys)
     std::string home_dir = std::string(std::getenv("HOME") ? std::getenv("HOME") : ".");

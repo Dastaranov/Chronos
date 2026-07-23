@@ -4,6 +4,7 @@
 #include "crypto/key_manager.hpp"
 #include "crypto/signer_dilithium.hpp"
 #include "util/log.hpp"
+#include "util/logging_config.hpp"
 #include "util/bytes.hpp"
 #include <thread>
 #include <filesystem>
@@ -47,7 +48,7 @@ Config create_test_config(int id, const std::string& base_dir, const std::vector
 
 TEST_CASE(FullIntegration, "Full Integration Test: 3 Nodes, 1000 Transactions") {
     // Setup logging
-    LOG_INIT("test_integration_logs");
+    chrono_util::setup_logging(false, false, "test_integration_logs/chronos.log");
     
     std::string test_root = "test_integration_data";
     if (fs::exists(test_root)) {

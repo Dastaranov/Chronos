@@ -7,8 +7,8 @@
  * @brief This file implements the Logger class, providing a comprehensive logging utility for the Chronos project.
  *
  * This implementation provides a thread-safe singleton logger that outputs messages
- * to both the console and a daily rotating log file. It supports different log levels
- * (INFO, WARN, ERROR) and categories (GENERAL, WALLET, P2P, etc.) to facilitate
+ * to a configured log file and, when enabled, mirrors them to the console. It supports
+ * different log levels (DEBUG, INFO, WARN, ERROR) and categories (GENERAL, WALLET, P2P, etc.) to facilitate
  * debugging and monitoring of the application.
  *
  * Key functions implemented:
@@ -21,6 +21,7 @@
 
 #include "util/log.hpp"
 #include "util/console_display.hpp" // Include ConsoleDisplay
+#include <filesystem>
 #include <stdexcept>
 #include <ctime>
 
@@ -54,34 +55,44 @@ Logger::~Logger() {
 /**
  * @brief Initializes the logger, setting up the log file.
  *
- * This method should be called once at the application startup. It constructs a log
- * file name based on the current date and the provided `log_dir`, then attempts to
- * open the file in append mode. If file opening fails, it falls back to console output.
+ * This method should be called once at the application startup. It maps the provided
+ * directory to a `chronos.log` file and configures the logger for INFO-level logging
+ * with console mirroring enabled.
  *
  * @param log_dir The directory where log files should be created. Defaults to the current directory.
  */
 void Logger::init(const std::string& log_dir) {
-    if (initialized) {
-        return;
+    std::filesystem::path log_path(log_dir);
+    log_path /= "chronos.log";
+    configure(log_path.string(), true, LogLevel::INFO);
+}
+
+/**
+ * @brief Configures the logger with an explicit file path and verbosity settings.
+ *
+ * @param log_file_path Full path to the log file.
+ * @param console_enabled Whether console mirroring should be enabled.
+ * @param min_level Minimum log level that should be emitted.
+ */
+void Logger::configure(const std::string& log_file_path, bool console_enabled, LogLevel min_level) {
+    std::lock_guard<std::mutex> guard(log_mutex);
+
+    if (log_file.is_open()) {
+        log_file.close();
     }
 
-    auto now = std::chrono::system_clock::now(); ///< @var now Current system time point.
-    std::time_t time = std::chrono::system_clock::to_time_t(now); ///< @var time Current system time as `std::time_t`.
-    std::tm tm = *std::localtime(&time); ///< @var tm Local time structure for formatting.
+    std::filesystem::path path(log_file_path);
+    if (path.has_parent_path()) {
+        std::filesystem::create_directories(path.parent_path());
+    }
 
-    std::stringstream ss; ///< @var ss Stringstream to build the log file path.
-    ss << log_dir << "/log_" << std::put_time(&tm, "%Y-%m-%d") << ".txt";
-    
-    log_file.open(ss.str(), std::ios::out | std::ios::app);
+    log_file.open(path.string(), std::ios::out | std::ios::app);
     if (!log_file.is_open()) {
-        // Fallback to console if file opening fails
-        std::cerr << "Failed to open log file: " << ss.str() << std::endl;
-        // Log this event even if file logging is not available
-        std::cerr << "Logger: Log file could not be opened. Falling back to console only." << std::endl;
-    } else {
-        std::cout << "Logger: Log file opened successfully: " << ss.str() << std::endl;
+        std::cerr << "Failed to open log file: " << path.string() << std::endl;
     }
 
+    console_enabled_ = console_enabled;
+    min_level_ = min_level;
     initialized = true;
 }
 
@@ -98,9 +109,9 @@ void Logger::set_console_display(ConsoleDisplay* display) {
  * @brief Logs a message with a specified level, category, and content.
  *
  * This method formats the log message with a precise timestamp (including milliseconds),
- * log level, and category. It then writes the formatted message to both the console
- * (using `std::cout` for INFO/WARN, `std::cerr` for ERROR) and the opened log file.
- * A `std::lock_guard` ensures thread-safe access to the output streams.
+ * log level, and category. It writes the formatted message to the configured log file
+ * and mirrors it to the console only when console logging is enabled. A
+ * `std::lock_guard` ensures thread-safe access to the output streams.
  *
  * @param level The severity level of the log message.
  * @param category The category of the log message.
@@ -110,6 +121,10 @@ void Logger::log(LogLevel level, LogCategory category, const std::string& messag
     if (!initialized) {
         // Fallback to console if not initialized
         std::cerr << "Logger not initialized. Message: " << message << std::endl;
+        return;
+    }
+
+    if (static_cast<int>(level) < static_cast<int>(min_level_)) {
         return;
     }
 
@@ -132,9 +147,9 @@ void Logger::log(LogLevel level, LogCategory category, const std::string& messag
     // console_stream << log_stream.str() << std::endl;
 
     // Redirect to ConsoleDisplay if set
-    if (console_display_) {
+    if (console_display_ && console_enabled_) {
         console_display_->print_log_message(log_stream.str());
-    } else {
+    } else if (console_enabled_) {
         // Fallback to standard console output if ConsoleDisplay is not set
         std::ostream& console_stream = (level == LogLevel::ERROR) ? std::cerr : std::cout;
         console_stream << log_stream.str() << std::endl;
@@ -175,9 +190,11 @@ std::string Logger::category_to_string(LogCategory category) {
         case LogCategory::EPOCH: return "EPOCH";
         case LogCategory::CONSENSUS: return "CONSENSUS";
         case LogCategory::P2P: return "P2P";
+        case LogCategory::NETWORK: return "NETWORK";
         case LogCategory::STATE: return "STATE";
         case LogCategory::CRYPTO: return "CRYPTO";
         case LogCategory::LEDGER: return "LEDGER";
+        case LogCategory::STORAGE: return "STORAGE";
         default: return "UNKNOWN";
     }
 }

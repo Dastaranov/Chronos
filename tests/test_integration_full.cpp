@@ -5,6 +5,7 @@
 #include "ledger/transaction.hpp"
 #include "util/bytes.hpp"
 #include "util/log.hpp"
+#include "util/logging_config.hpp"
 #include <filesystem>
 #include <thread>
 #include <vector>
@@ -51,7 +52,7 @@ TEST_CASE("Full Integration Test: 3 Nodes, 1000 Transactions") {
     fs::create_directories(test_root);
 
     // Initialize logging
-    LOG_INIT(test_root);
+    chrono_util::setup_logging(false, false, test_root + "/logs/chronos.log");
 
     // Generate keys for 3 nodes
     std::vector<std::string> validator_pubkeys;

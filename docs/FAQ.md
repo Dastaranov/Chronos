@@ -430,11 +430,11 @@ Chronos implements a comprehensive logging system:
 **Features:**
 - **Categories**: GENERAL, WALLET, CONSENSUS, P2P, STATE, CRYPTO, LEDGER, STORAGE
 - **Levels**: INFO, WARN, ERROR, DEBUG
-- **Outputs**: Console and file (`chronos_log_<date>.txt`)
+- **Outputs**: File (`logs/chronos.log`) and optional console mirroring
 - **Usage**: `LOG_INFO(LogCategory::CONSENSUS, "Message with {}", arg)`
 
 **Configuration:**
-- Initialize with `LOG_INIT(".")` in main
+- Initialize with `chrono_util::setup_logging(...)` in your entrypoint
 - Adjust verbosity as needed
 - Separate console display from log spam
 

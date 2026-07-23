@@ -57,6 +57,7 @@ enum class LogCategory {
     EPOCH,       ///< Messages related to epoch management or time-based events.
     CONSENSUS,   ///< Messages related to consensus algorithms (e.g., PoT, BFT).
     P2P,         ///< Messages related to peer-to-peer networking.
+    NETWORK,     ///< Messages related to general networking and backend connectivity.
     STATE,       ///< Messages related to the ledger state.
     CRYPTO,      ///< Messages related to cryptographic operations.
     LEDGER,      ///< Messages related to ledger and block management.
@@ -89,6 +90,19 @@ public:
      * @param log_dir The directory where log files should be created. Defaults to the current directory.
      */
     void init(const std::string& log_dir = ".");
+
+    /**
+     * @brief Configures the logger with an explicit file path, console behavior, and minimum level.
+     *
+     * This method reconfigures the logger to write to the provided log file path,
+     * optionally mirror log output to the console, and suppress messages below the
+     * selected minimum severity level.
+     *
+     * @param log_file_path Full path to the log file.
+     * @param console_enabled Whether console output should be enabled.
+     * @param min_level Minimum log level that will be emitted.
+     */
+    void configure(const std::string& log_file_path, bool console_enabled, LogLevel min_level);
 
     /**
      * @brief Logs a message with a specified level, category, and content.
@@ -129,6 +143,8 @@ private:
     std::mutex log_mutex; ///< @var log_mutex A mutex to ensure thread-safe access to the log file and console output.
     bool initialized = false; ///< @var initialized A flag indicating whether the logger has been initialized.
     ConsoleDisplay* console_display_ = nullptr; ///< @var console_display_ Pointer to the ConsoleDisplay instance for console output.
+    bool console_enabled_ = true; ///< @var console_enabled_ Controls whether log output is mirrored to the console.
+    LogLevel min_level_ = LogLevel::INFO; ///< @var min_level_ Minimum severity level that will be emitted.
 
     /**
      * @brief Converts a `LogLevel` enum value to its string representation.

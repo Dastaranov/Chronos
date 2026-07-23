@@ -193,6 +193,7 @@ target_compile_definitions(chronos_lib PUBLIC
 )
 
 target_include_directories(chronos_lib PUBLIC
+    ${CMAKE_CURRENT_SOURCE_DIR}/include
     ${CMAKE_CURRENT_SOURCE_DIR}/src
     ${CMAKE_CURRENT_SOURCE_DIR}/src/util
     ${CMAKE_CURRENT_SOURCE_DIR}
@@ -294,6 +295,7 @@ add_executable(chronos_tests
     tests/test_protobuf_validation.cpp
     tests/test_error_types.cpp
     tests/test_retry_policy.cpp
+    tests/test_logging_config.cpp
     tests/test_key_rotation.cpp
     tests/test_p2p_encryption.cpp
 )
