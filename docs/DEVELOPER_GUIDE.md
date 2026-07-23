@@ -64,7 +64,7 @@ TEST_CASE("MyNewFeature") {
 The BFT logic is in `src/consensus/bft.cpp`. Be extremely careful when modifying the state machine. Always run `test_bft` and `test_robust_integration` after changes.
 
 ## 6. Debugging
-- Logs are written to `chronos_log_<date>.txt`.
+- Logs are written to `logs/chronos.log` by default via `chrono_util::setup_logging(...)`.
 - Use `LOG_INFO`, `LOG_DEBUG`, etc., from `src/util/log.hpp`.
 - For complex concurrency issues, use the `test_robust_integration` test with increased logging.
 

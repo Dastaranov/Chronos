@@ -18,6 +18,7 @@
  */
 
 #include "consensus/pot_aggregator.hpp"
+#include "util/log.hpp"
 #include <algorithm>
 #include <cmath>
 #include <numeric>
@@ -76,6 +77,9 @@ bool PoTAggregator::verify_measurement(const TimeMeasurement& tm) const {
         // If MAD is 0 (all timestamps identical), allow small deviation (e.g. 100ms)
         uint64_t allowed_deviation = std::max(mad * 3, static_cast<uint64_t>(100));
         if (std::abs(static_cast<int64_t>(tm.timestamp) - static_cast<int64_t>(median)) > allowed_deviation) {
+            LOG_DEBUG(chrono_util::LogCategory::CONSENSUS,
+                      "Rejected time measurement {} as outlier during plausibility check (median={}, mad={}, allowed_deviation={})",
+                      tm.timestamp, median, mad, allowed_deviation);
             return false; // Outlier
         }
     }
@@ -104,15 +108,22 @@ bool PoTAggregator::validate_timestamp(uint64_t proposer_timestamp_ms,
 void PoTAggregator::add_timestamp(const TimeMeasurement& tm) {
     // Basic validation: ignore timestamps that are too old or have very low confidence
     if (tm.timestamp < min_thr_ms_) { // Assuming min_thr_ms_ can also serve as a minimum valid time
-        // Log or handle invalid timestamp
+        LOG_DEBUG(chrono_util::LogCategory::CONSENSUS,
+                  "Ignoring time measurement {} below minimum threshold {}",
+                  tm.timestamp, min_thr_ms_);
         return;
     }
     if (tm.confidence < 0.1) { // Example threshold for confidence
-        // Log or handle low confidence timestamp
+        LOG_DEBUG(chrono_util::LogCategory::CONSENSUS,
+                  "Ignoring low-confidence time measurement {} with confidence {}",
+                  tm.timestamp, tm.confidence);
         return;
     }
 
     if (!verify_measurement(tm)) {
+        LOG_DEBUG(chrono_util::LogCategory::CONSENSUS,
+                  "Rejected time measurement {} from source {} after verification",
+                  tm.timestamp, static_cast<int>(tm.source));
         return;
     }
 
@@ -121,6 +132,9 @@ void PoTAggregator::add_timestamp(const TimeMeasurement& tm) {
     // - Source-specific validation (e.g., if from NTP, check stratum, jitter etc. - would require more metadata)
 
     time_measurements_.push_back(tm);
+    LOG_DEBUG(chrono_util::LogCategory::CONSENSUS,
+              "Accepted time measurement {} with confidence {} and tier {}",
+              tm.timestamp, tm.confidence, tm.tier);
 }
 
 uint64_t PoTAggregator::get_consensus_time() const {
@@ -154,6 +168,9 @@ uint64_t PoTAggregator::get_consensus_time() const {
     
     std::nth_element(deviations.begin(), deviations.begin() + mid, deviations.end());
     uint64_t mad = deviations[mid];
+    LOG_DEBUG(chrono_util::LogCategory::CONSENSUS,
+              "PoT aggregation median={} mad={} sample_count={}",
+              median_timestamp, mad, size);
 
     // 3. Filter out outliers and prepare for weighted average
     std::vector<TimeMeasurement> filtered_measurements;
@@ -166,6 +183,10 @@ uint64_t PoTAggregator::get_consensus_time() const {
             filtered_measurements.push_back(tm);
             total_weighted_sum += static_cast<double>(tm.timestamp) * tm.confidence;
             total_confidence += tm.confidence;
+        } else {
+            LOG_DEBUG(chrono_util::LogCategory::CONSENSUS,
+                      "Filtered out time measurement {} during MAD pass (median={}, mad_factor={}, mad={})",
+                      tm.timestamp, median_timestamp, mad_factor_, mad);
         }
     }
 

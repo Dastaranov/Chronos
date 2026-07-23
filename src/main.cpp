@@ -1,6 +1,7 @@
 #include "node/node_app.hpp"
 #include "node/config.hpp"
 #include "util/log.hpp"
+#include "util/logging_config.hpp"
 #include "util/system_lock.hpp"
 #include <iostream>
 #include <string>
@@ -15,10 +16,10 @@ int main(int argc, char** argv) {
         }
     }
 
-    // Initialize logging
-    LOG_INIT(".");
-
     try {
+        chrono_util::setup_logging(false);
+        LOG_INFO(chrono_util::LogCategory::GENERAL, "Chronos node starting with config {}", config_path);
+
         // System-wide lock to prevent multiple instances on the same machine
         // This prevents accidental double-starts and basic Sybil attempts on one machine
         chrono_util::SystemLock lock("/tmp/chronos_guard.lock");
